@@ -3,14 +3,15 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
 import { useListEmployees, useCreateEmployee, useDeleteEmployee, useGetEmployeeQr } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Trash2, Edit, QrCode } from "lucide-react";
+import { Plus, Search, Trash2, Edit, QrCode, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QRCode from "react-qr-code";
+import { apiClient } from "@/lib/api-client";
 
 export default function Employees() {
   const { language } = useAppStore();
@@ -25,10 +26,15 @@ export default function Employees() {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [selectedEmpId, setSelectedEmpId] = useState<number | null>(null);
 
+  const { data: departments = [] } = useQuery({
+    queryKey: ["/api/departments"],
+    queryFn: async () => { const r = await apiClient.get("/api/departments"); return r.data as any[]; },
+  });
+
   // Form State
   const [formData, setFormData] = useState({
     fullName: "", phone: "", position: "", salaryType: "monthly" as "hourly"|"monthly", 
-    hourlyRate: 0, monthlySalary: 0, telegramId: ""
+    hourlyRate: 0, monthlySalary: 0, telegramId: "", departmentId: "" as string
   });
 
   const createMutation = useCreateEmployee({
@@ -52,7 +58,10 @@ export default function Employees() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({ data: formData });
+    const data: any = { ...formData };
+    if (!data.departmentId) delete data.departmentId;
+    else data.departmentId = parseInt(data.departmentId);
+    createMutation.mutate({ data });
   };
 
   const openQr = (id: number) => {
@@ -168,13 +177,27 @@ export default function Employees() {
               </div>
               {formData.salaryType === 'monthly' ? (
                 <div className="space-y-2">
-                  <Label>Monthly Salary</Label>
+                  <Label>Oylik maosh (so'm)</Label>
                   <Input type="number" required value={formData.monthlySalary} onChange={e => setFormData({...formData, monthlySalary: Number(e.target.value)})} className="rounded-xl" />
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label>Hourly Rate</Label>
+                  <Label>Soatlik stavka (so'm)</Label>
                   <Input type="number" required value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: Number(e.target.value)})} className="rounded-xl" />
+                </div>
+              )}
+              {(departments as any[]).length > 0 && (
+                <div className="space-y-2 col-span-2">
+                  <Label className="flex items-center gap-1.5"><Building2 className="w-4 h-4" /> Bo'lim</Label>
+                  <Select value={formData.departmentId} onValueChange={v => setFormData({...formData, departmentId: v})}>
+                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Bo'lim tanlang (ixtiyoriy)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Belgilanmagan</SelectItem>
+                      {(departments as any[]).map((d: any) => (
+                        <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>

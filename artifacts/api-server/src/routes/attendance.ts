@@ -1,8 +1,17 @@
 import { Router, type IRouter } from "express";
-import { db, attendanceTable, employeesTable } from "@workspace/db";
+import { db, attendanceTable, employeesTable, companiesTable } from "@workspace/db";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { sendTelegramMessage } from "../lib/telegram-bot";
+
+function calcLateMinutes(checkIn: Date, workStartTime: string, thresholdMinutes: number): number {
+  const [h, m] = workStartTime.split(":").map(Number);
+  const start = new Date(checkIn);
+  start.setHours(h, m, 0, 0);
+  const diffMs = checkIn.getTime() - start.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  return diffMin > thresholdMinutes ? diffMin : 0;
+}
 
 const router: IRouter = Router();
 
@@ -44,19 +53,31 @@ router.post("/scan", async (req, res) => {
 
     const now = new Date();
 
+    const company = await db.query.companiesTable.findFirst({
+      where: eq(companiesTable.id, company_id),
+    });
+    const workStart = company?.workStartTime || "09:00";
+    const threshold = parseInt(company?.lateThresholdMinutes || "15");
+
     if (!todayRecord) {
+      const lateMinutes = calcLateMinutes(now, workStart, threshold);
+      const status = lateMinutes > 0 ? "late" : "present";
+
       const [newRecord] = await db.insert(attendanceTable).values({
         employeeId: employee_id,
         companyId: company_id,
         checkIn: now,
+        lateMinutes,
+        status,
         deviceId: deviceId || null,
       }).returning();
 
       if (employee.telegramId) {
         const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+        const lateText = lateMinutes > 0 ? `\n⚠️ Kechikish: <b>${lateMinutes} daqiqa</b>` : "";
         await sendTelegramMessage(
           employee.telegramId,
-          `✅ <b>Ishga keldingiz!</b>\n\n👤 ${employee.fullName}\n🕐 Kelish vaqti: <b>${formatTime(now)}</b>\n📅 Sana: ${date}`
+          `✅ <b>Ishga keldingiz!</b>\n\n👤 ${employee.fullName}\n🕐 Kelish vaqti: <b>${formatTime(now)}</b>\n📅 Sana: ${date}${lateText}`
         ).catch(() => {});
       }
 
@@ -64,7 +85,8 @@ router.post("/scan", async (req, res) => {
         action: "check_in",
         employee: formatEmployee(employee),
         attendance: formatAttendance(newRecord, employee),
-        message: `${employee.fullName} checked in at ${formatTime(now)}`,
+        message: `${employee.fullName} checked in at ${formatTime(now)}${lateMinutes > 0 ? ` (${lateMinutes} min late)` : ""}`,
+        lateMinutes,
       });
     } else if (!todayRecord.checkOut) {
       const checkInTime = todayRecord.checkIn ? new Date(todayRecord.checkIn) : now;

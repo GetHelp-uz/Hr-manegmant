@@ -6,6 +6,7 @@ import { companiesTable } from "./companies";
 export const employeesTable = pgTable("employees", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").references(() => companiesTable.id).notNull(),
+  departmentId: integer("department_id"),
   fullName: varchar("full_name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }).notNull(),
   position: varchar("position", { length: 255 }).notNull(),
@@ -14,6 +15,7 @@ export const employeesTable = pgTable("employees", {
   monthlySalary: numeric("monthly_salary", { precision: 10, scale: 2 }),
   qrCode: text("qr_code"),
   telegramId: varchar("telegram_id", { length: 100 }),
+  status: varchar("status", { length: 50 }).notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

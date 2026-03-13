@@ -8,6 +8,9 @@ import devicesRouter from "./devices";
 import payrollRouter from "./payroll";
 import reportsRouter from "./reports";
 import telegramRouter from "./telegram";
+import departmentsRouter from "./departments";
+import leaveRequestsRouter from "./leave_requests";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -20,5 +23,8 @@ router.use("/devices", devicesRouter);
 router.use("/payroll", payrollRouter);
 router.use("/reports", reportsRouter);
 router.use("/telegram", telegramRouter);
+router.use("/departments", departmentsRouter);
+router.use("/leave-requests", leaveRequestsRouter);
+router.use("/settings", settingsRouter);
 
 export default router;

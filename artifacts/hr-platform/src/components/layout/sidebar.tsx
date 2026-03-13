@@ -9,11 +9,15 @@ import {
   FileBarChart, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Building2,
+  CalendarDays,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
 import { useGetMyCompany } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -21,10 +25,19 @@ export function Sidebar() {
   const t = useTranslation(language);
   const { data: company } = useGetMyCompany({ query: { retry: false } });
 
+  const { data: leaveRequests = [] } = useQuery({
+    queryKey: ["/api/leave-requests"],
+    queryFn: async () => { const r = await apiClient.get("/api/leave-requests"); return r.data as any[]; },
+    refetchInterval: 30000,
+  });
+  const pendingCount = leaveRequests.filter((r: any) => r.status === "pending").length;
+
   const navigation = [
     { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard },
     { name: t('employees'), href: "/employees", icon: Users },
+    { name: "Bo'limlar", href: "/departments", icon: Building2 },
     { name: t('attendance'), href: "/attendance", icon: CalendarCheck },
+    { name: "Ta'til So'rovlar", href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined },
     { name: t('qr_scanner'), href: "/scanner", icon: ScanLine },
     { name: t('devices'), href: "/devices", icon: MonitorSmartphone },
     { name: t('payroll'), href: "/payroll", icon: Banknote },
@@ -71,12 +84,12 @@ export function Sidebar() {
       </button>
 
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1 scrollbar-hide">
-        {navigation.map((item) => {
+        {navigation.map((item: any) => {
           const isActive = location === item.href;
           return (
             <Link key={item.name} href={item.href} className="block">
               <div className={`
-                flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 group
+                flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 group relative
                 ${isActive 
                   ? 'bg-primary text-white shadow-md shadow-primary/25' 
                   : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-white'
@@ -84,7 +97,12 @@ export function Sidebar() {
                 ${!sidebarOpen && 'justify-center'}
               `}>
                 <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-sidebar-foreground/60 group-hover:text-white transition-colors'}`} />
-                {sidebarOpen && <span className="font-medium">{item.name}</span>}
+                {sidebarOpen && <span className="font-medium flex-1">{item.name}</span>}
+                {item.badge > 0 && (
+                  <span className={`text-xs font-bold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ${!sidebarOpen ? 'absolute -top-1 -right-1' : ''}`}>
+                    {item.badge}
+                  </span>
+                )}
               </div>
             </Link>
           );

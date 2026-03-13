@@ -15,6 +15,8 @@ import Devices from "@/pages/devices/index";
 import Payroll from "@/pages/payroll/index";
 import Reports from "@/pages/reports/index";
 import Settings from "@/pages/settings/index";
+import Departments from "@/pages/departments/index";
+import LeaveRequests from "@/pages/leave-requests/index";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +28,8 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/employees" component={Employees} />
+      <Route path="/departments" component={Departments} />
+      <Route path="/leave-requests" component={LeaveRequests} />
       <Route path="/scanner" component={Scanner} />
       <Route path="/attendance" component={Attendance} />
       <Route path="/devices" component={Devices} />

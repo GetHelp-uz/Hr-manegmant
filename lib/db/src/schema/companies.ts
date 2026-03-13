@@ -10,6 +10,11 @@ export const companiesTable = pgTable("companies", {
   password: text("password").notNull(),
   logo: text("logo"),
   subscriptionPlan: varchar("subscription_plan", { length: 50 }).notNull().default("free"),
+  joinCode: varchar("join_code", { length: 20 }).unique(),
+  workStartTime: varchar("work_start_time", { length: 10 }).default("09:00"),
+  workEndTime: varchar("work_end_time", { length: 10 }).default("18:00"),
+  lateThresholdMinutes: varchar("late_threshold_minutes", { length: 5 }).default("15"),
+  telegramAdminId: varchar("telegram_admin_id", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
