@@ -52,9 +52,13 @@ router.get("/qr-code", requireAuth, async (req, res) => {
 
     const botUsername = process.env.TELEGRAM_BOT_USERNAME || "hr_workforce_bot";
     const deepLink = `https://t.me/${botUsername}?start=${joinCode}`;
-    const qrDataUrl = await QRCode.toDataURL(deepLink, { width: 400, margin: 2 });
+    const telegramQrCode = await QRCode.toDataURL(deepLink, { width: 400, margin: 2 });
 
-    return res.json({ joinCode, deepLink, qrCode: qrDataUrl });
+    const origin = (req.headers.origin as string) || `${req.protocol}://${req.headers.host}`;
+    const webJoinUrl = `${origin}/join?code=${joinCode}`;
+    const webQrCode = await QRCode.toDataURL(webJoinUrl, { width: 400, margin: 2 });
+
+    return res.json({ joinCode, deepLink, qrCode: telegramQrCode, webJoinUrl, webQrCode });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -69,9 +73,13 @@ router.post("/regenerate-code", requireAuth, async (req, res) => {
 
     const botUsername = process.env.TELEGRAM_BOT_USERNAME || "hr_workforce_bot";
     const deepLink = `https://t.me/${botUsername}?start=${joinCode}`;
-    const qrDataUrl = await QRCode.toDataURL(deepLink, { width: 400, margin: 2 });
+    const telegramQrCode = await QRCode.toDataURL(deepLink, { width: 400, margin: 2 });
 
-    return res.json({ joinCode, deepLink, qrCode: qrDataUrl });
+    const origin = (req.headers.origin as string) || `${req.protocol}://${req.headers.host}`;
+    const webJoinUrl = `${origin}/join?code=${joinCode}`;
+    const webQrCode = await QRCode.toDataURL(webJoinUrl, { width: 400, margin: 2 });
+
+    return res.json({ joinCode, deepLink, qrCode: telegramQrCode, webJoinUrl, webQrCode });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });

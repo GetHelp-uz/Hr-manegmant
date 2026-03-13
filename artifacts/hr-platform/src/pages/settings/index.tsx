@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Save, QrCode, Clock, RefreshCw, Copy, MessageCircle, Download } from "lucide-react";
+import { Building2, Save, QrCode, Clock, RefreshCw, Copy, MessageCircle, Download, Globe } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 
 async function fetchSettings() {
@@ -176,49 +176,91 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Telegram QR Code */}
+        {/* Join Code & QR Codes */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg"><QrCode className="w-5 h-5 text-green-500" /> Telegram Bot — Xodim Ulanish QR Kodi</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg"><QrCode className="w-5 h-5 text-green-500" /> Xodim Ulanish QR Kodlari</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-sm mb-6">
-              Xodimlar bu QR kodni telefon kamerasida skanerlaydi va Telegram botga avtomatik ulanadi.
-              Bot ulardan telefon raqamini so'radi va tasdiqlashdan so'ng ulangan bo'ladi.
-            </p>
+          <CardContent className="space-y-6">
             {qrLoading ? (
               <div className="h-48 bg-muted rounded-xl animate-pulse" />
             ) : qrData ? (
-              <div className="flex flex-col md:flex-row gap-8 items-start">
-                <div className="bg-white p-4 rounded-2xl shadow-md border">
-                  <img src={qrData.qrCode} alt="Company QR Code" className="w-52 h-52" />
+              <>
+                {/* Join Code */}
+                <div className="space-y-1.5">
+                  <Label>Ulanish kodi</Label>
+                  <div className="flex gap-2">
+                    <Input value={(qrData as any).joinCode} readOnly className="font-mono text-lg font-bold tracking-widest" />
+                    <Button variant="outline" size="icon" onClick={copyCode}><Copy className="w-4 h-4" /></Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Bu kodni xodimlarga yuboring — ular quyidagi usullardan birini ishlatishi mumkin</p>
                 </div>
-                <div className="space-y-4 flex-1">
-                  <div className="space-y-1.5">
-                    <Label>Ulanish kodi</Label>
-                    <div className="flex gap-2">
-                      <Input value={qrData.joinCode} readOnly className="font-mono text-lg font-bold tracking-widest" />
-                      <Button variant="outline" size="icon" onClick={copyCode}><Copy className="w-4 h-4" /></Button>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Web QR Code */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-blue-500" />
+                      <Label className="font-semibold">Web Sahifa QR (Tavsiya etiladi)</Label>
                     </div>
-                    <p className="text-xs text-muted-foreground">Yoki xodim botga <code>/start {qrData.joinCode}</code> yozishi mumkin</p>
+                    <div className="bg-white p-4 rounded-2xl shadow-md border inline-block">
+                      {(qrData as any).webQrCode ? (
+                        <img src={(qrData as any).webQrCode} alt="Web Join QR" className="w-44 h-44" />
+                      ) : (
+                        <div className="w-44 h-44 bg-muted rounded-xl flex items-center justify-center text-sm text-muted-foreground">Mavjud emas</div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Skanerlash → Web sahifa ochiladi → Telefon kiritadi → Tasdiqlaydi
+                    </p>
+                    {(qrData as any).webJoinUrl && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Havola</Label>
+                        <Input value={(qrData as any).webJoinUrl} readOnly className="text-xs" />
+                      </div>
+                    )}
+                    {(qrData as any).webQrCode && (
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => {
+                        const a = document.createElement("a"); a.href = (qrData as any).webQrCode; a.download = "web-join-qr.png"; a.click();
+                      }}>
+                        <Download className="w-3.5 h-3.5" /> Yuklab olish
+                      </Button>
+                    )}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Bot havolasi</Label>
-                    <Input value={qrData.deepLink} readOnly className="text-xs text-muted-foreground" />
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button onClick={downloadQr} className="gap-2">
-                      <Download className="w-4 h-4" /> QR Yuklab olish
-                    </Button>
-                    <Button variant="outline" onClick={() => regenerateM.mutate()} disabled={regenerateM.isPending} className="gap-2">
-                      <RefreshCw className={`w-4 h-4 ${regenerateM.isPending ? "animate-spin" : ""}`} />
-                      Yangi kod
+
+                  {/* Telegram QR Code */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-blue-500" />
+                      <Label className="font-semibold">Telegram Bot QR</Label>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl shadow-md border inline-block">
+                      <img src={(qrData as any).qrCode} alt="Telegram QR Code" className="w-44 h-44" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Skanerlash → Telegram ochilib botga ulanadi → Telefon kiritadi
+                    </p>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Telegram havolasi</Label>
+                      <Input value={(qrData as any).deepLink} readOnly className="text-xs" />
+                    </div>
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={downloadQr}>
+                      <Download className="w-3.5 h-3.5" /> Yuklab olish
                     </Button>
                   </div>
                 </div>
-              </div>
+
+                <div className="flex gap-2 pt-2 border-t">
+                  <Button variant="outline" onClick={() => regenerateM.mutate()} disabled={regenerateM.isPending} className="gap-2 text-sm">
+                    <RefreshCw className={`w-4 h-4 ${regenerateM.isPending ? "animate-spin" : ""}`} />
+                    Yangi kod yaratish
+                  </Button>
+                </div>
+              </>
             ) : (
-              <Button onClick={() => refetchQr()}>QR Kodni Yaratish</Button>
+              <Button onClick={() => refetchQr()} className="gap-2">
+                <QrCode className="w-4 h-4" /> QR Kodlarni Yaratish
+              </Button>
             )}
           </CardContent>
         </Card>

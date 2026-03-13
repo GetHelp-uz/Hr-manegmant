@@ -18,6 +18,7 @@ import Reports from "@/pages/reports/index";
 import Settings from "@/pages/settings/index";
 import Departments from "@/pages/departments/index";
 import LeaveRequests from "@/pages/leave-requests/index";
+import Join from "@/pages/join/index";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/join" component={Join} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/employees/print-qr" component={PrintQR} />
       <Route path="/employees" component={Employees} />

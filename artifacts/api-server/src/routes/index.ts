@@ -11,6 +11,7 @@ import telegramRouter from "./telegram";
 import departmentsRouter from "./departments";
 import leaveRequestsRouter from "./leave_requests";
 import settingsRouter from "./settings";
+import joinRouter from "./join";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use("/telegram", telegramRouter);
 router.use("/departments", departmentsRouter);
 router.use("/leave-requests", leaveRequestsRouter);
 router.use("/settings", settingsRouter);
+router.use("/join", joinRouter);
 
 export default router;

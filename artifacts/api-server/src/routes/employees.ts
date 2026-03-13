@@ -217,6 +217,31 @@ router.get("/:id/qr", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/:id/regenerate-qr", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const id = parseInt(req.params.id);
+
+    const [employee] = await db
+      .select()
+      .from(employeesTable)
+      .where(and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId)));
+
+    if (!employee) {
+      return res.status(404).json({ error: "not_found" });
+    }
+
+    const qrData = JSON.stringify({ employee_id: employee.id, company_id: companyId, name: employee.fullName });
+    const qrCode = await QRCode.toDataURL(qrData, { width: 300, margin: 1 });
+    await db.update(employeesTable).set({ qrCode }).where(eq(employeesTable.id, id));
+
+    return res.json({ qrCode, employeeId: id, fullName: employee.fullName });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
 function formatEmployee(e: any) {
   return {
     id: e.id,

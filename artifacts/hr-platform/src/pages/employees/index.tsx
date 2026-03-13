@@ -7,7 +7,7 @@ import { useListEmployees, useCreateEmployee, useDeleteEmployee } from "@workspa
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Trash2, QrCode, Building2, Printer, Download } from "lucide-react";
+import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,7 +24,7 @@ export default function Employees() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
-  const [selectedEmp, setSelectedEmp] = useState<{ id: number; fullName: string } | null>(null);
+  const [selectedEmp, setSelectedEmp] = useState<any | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
@@ -63,18 +63,41 @@ export default function Employees() {
     createMutation.mutate({ data });
   };
 
-  const openQr = async (emp: { id: number; fullName: string }) => {
-    setSelectedEmp(emp);
-    setQrDataUrl(null);
-    setIsQrOpen(true);
+  const loadQr = async (emp: any) => {
     setQrLoading(true);
+    setQrDataUrl(null);
     try {
       const r = await apiClient.get(`/api/employees/${emp.id}/qr`);
-      setQrDataUrl(r.data.qrCode);
+      setQrDataUrl((r as any).qrCode || null);
     } catch {
-      setQrDataUrl(null);
+      setQrDataUrl(emp.qrCode || null);
     } finally {
       setQrLoading(false);
+    }
+  };
+
+  const openQr = async (emp: any) => {
+    setSelectedEmp(emp);
+    setIsQrOpen(true);
+    if (emp.qrCode) {
+      setQrDataUrl(emp.qrCode);
+      setQrLoading(false);
+    } else {
+      setQrLoading(true);
+      await loadQr(emp);
+    }
+  };
+
+  const regenerateQr = async () => {
+    if (!selectedEmp) return;
+    setQrLoading(true);
+    setQrDataUrl(null);
+    try {
+      const r = await apiClient.post(`/api/employees/${selectedEmp.id}/regenerate-qr`);
+      setQrDataUrl((r as any).qrCode || null);
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+    } catch {
+      await loadQr(selectedEmp);
     }
   };
 
@@ -132,14 +155,15 @@ export default function Employees() {
                   <th className="px-6 py-4">{t('position')}</th>
                   <th className="px-6 py-4">{t('phone')}</th>
                   <th className="px-6 py-4">{t('salary_type')}</th>
+                  <th className="px-6 py-4 text-center">QR</th>
                   <th className="px-6 py-4 text-right">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {isLoading ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">{t('loading')}</td></tr>
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">{t('loading')}</td></tr>
                 ) : (employees?.data?.length ?? 0) === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">{t('no_data')}</td></tr>
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">{t('no_data')}</td></tr>
                 ) : (
                   employees?.data.map((emp) => (
                     <tr key={emp.id} className="hover:bg-muted/30 transition-colors group">
@@ -151,9 +175,16 @@ export default function Employees() {
                           {emp.salaryType}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        {emp.qrCode ? (
+                          <span className="inline-block w-2 h-2 rounded-full bg-green-500" title="QR mavjud" />
+                        ) : (
+                          <span className="inline-block w-2 h-2 rounded-full bg-red-400" title="QR yo'q" />
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg gap-1.5 text-xs" onClick={() => openQr({ id: emp.id, fullName: emp.fullName })}>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg gap-1.5 text-xs" onClick={() => openQr(emp)}>
                             <QrCode className="w-3.5 h-3.5 text-primary" />
                             QR
                           </Button>
@@ -246,7 +277,7 @@ export default function Employees() {
         <DialogContent className="sm:max-w-xs rounded-3xl p-8 flex flex-col items-center text-center">
           <DialogHeader>
             <DialogTitle className="text-xl font-display">{selectedEmp?.fullName}</DialogTitle>
-            <p className="text-sm text-muted-foreground">Davomat QR Kodi</p>
+            <p className="text-sm text-muted-foreground">Davomat uchun QR Kod</p>
           </DialogHeader>
           <div className="mt-4 bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
             {qrLoading ? (
@@ -256,13 +287,21 @@ export default function Employees() {
             ) : qrDataUrl ? (
               <img src={qrDataUrl} alt="QR Code" className="w-[200px] h-[200px]" />
             ) : (
-              <div className="w-[200px] h-[200px] bg-muted rounded-xl flex items-center justify-center text-sm text-red-500">Xato yuz berdi</div>
+              <div className="w-[200px] h-[200px] bg-muted rounded-xl flex flex-col items-center justify-center gap-3">
+                <span className="text-sm text-red-500">QR kodi topilmadi</span>
+                <Button size="sm" variant="outline" onClick={() => selectedEmp && loadQr(selectedEmp)} className="text-xs">
+                  Qayta urinish
+                </Button>
+              </div>
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-3">Skanerlash orqali kirish/chiqishni qayd eting</p>
           <div className="flex gap-2 w-full mt-4">
-            <Button variant="outline" className="flex-1 rounded-xl" onClick={downloadQr} disabled={!qrDataUrl}>
-              <Download className="w-4 h-4 mr-2" /> Yuklab olish
+            <Button variant="outline" className="flex-1 rounded-xl text-xs" onClick={downloadQr} disabled={!qrDataUrl || qrLoading}>
+              <Download className="w-3.5 h-3.5 mr-1.5" /> Yuklab olish
+            </Button>
+            <Button variant="outline" className="flex-1 rounded-xl text-xs" onClick={regenerateQr} disabled={qrLoading}>
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${qrLoading ? "animate-spin" : ""}`} /> Yangilash
             </Button>
           </div>
         </DialogContent>
