@@ -47,7 +47,7 @@ export default function Login() {
         toast({
           variant: "destructive",
           title: "Xatolik",
-          description: err?.response?.data?.message || "Login yoki parol noto'g'ri",
+          description: err?.data?.message || err?.message || "Login yoki parol noto'g'ri",
         });
       }
     }

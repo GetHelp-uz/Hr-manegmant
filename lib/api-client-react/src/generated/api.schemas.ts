@@ -20,7 +20,8 @@ export interface SuccessResponse {
 }
 
 export interface LoginRequest {
-  email: string;
+  email?: string;
+  login?: string;
   password: string;
 }
 
@@ -30,6 +31,8 @@ export interface RegisterRequest {
   email: string;
   password: string;
   adminName: string;
+  login?: string;
+  address?: string;
 }
 
 export interface AdminUser {
@@ -37,6 +40,7 @@ export interface AdminUser {
   companyId: number;
   name: string;
   email: string;
+  login?: string;
   role: string;
 }
 

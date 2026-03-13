@@ -45,7 +45,7 @@ export default function Register() {
         toast({
           variant: "destructive",
           title: "Xatolik",
-          description: err?.response?.data?.message || "Ro'yxatdan o'tishda xatolik",
+          description: err?.data?.message || err?.message || "Ro'yxatdan o'tishda xatolik",
         });
       }
     }
