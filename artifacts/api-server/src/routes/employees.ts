@@ -57,7 +57,12 @@ async function generateUniqueEmployeeCode(): Promise<string> {
 router.post("/", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
-    const { fullName, phone, position, salaryType, hourlyRate, monthlySalary, telegramId, departmentId } = req.body;
+    const {
+      fullName, phone, position, salaryType, hourlyRate, monthlySalary, telegramId, departmentId,
+      employmentType, jshshir, passportSeries, birthDate, hireDate,
+      contractNumber, laborBookSeries, laborBookNumber, laborBookIssuedBy, laborBookIssuedDate,
+      contractEndDate, probationMonths,
+    } = req.body;
 
     const employeeCode = await generateUniqueEmployeeCode();
 
@@ -72,6 +77,18 @@ router.post("/", requireAuth, async (req, res) => {
       telegramId: telegramId || null,
       departmentId: departmentId ? parseInt(departmentId) : null,
       employeeCode,
+      employmentType: employmentType || "informal",
+      jshshir: jshshir || null,
+      passportSeries: passportSeries || null,
+      birthDate: birthDate || null,
+      hireDate: hireDate || null,
+      contractNumber: contractNumber || null,
+      laborBookSeries: laborBookSeries || null,
+      laborBookNumber: laborBookNumber || null,
+      laborBookIssuedBy: laborBookIssuedBy || null,
+      laborBookIssuedDate: laborBookIssuedDate || null,
+      contractEndDate: contractEndDate || null,
+      probationMonths: probationMonths ? parseInt(probationMonths) : 0,
     }).returning();
 
     const deepLink = `https://t.me/${getBotUsername()}?start=emp_${employee.id}`;
@@ -187,6 +204,15 @@ router.put("/:id", requireAuth, async (req, res) => {
     if (jshshir !== undefined) setData.jshshir = jshshir || null;
     if (passportSeries !== undefined) setData.passportSeries = passportSeries || null;
     if (birthDate !== undefined) setData.birthDate = birthDate || null;
+    if (employmentType !== undefined) setData.employmentType = employmentType;
+    if (hireDate !== undefined) setData.hireDate = hireDate || null;
+    if (contractNumber !== undefined) setData.contractNumber = contractNumber || null;
+    if (laborBookSeries !== undefined) setData.laborBookSeries = laborBookSeries || null;
+    if (laborBookNumber !== undefined) setData.laborBookNumber = laborBookNumber || null;
+    if (laborBookIssuedBy !== undefined) setData.laborBookIssuedBy = laborBookIssuedBy || null;
+    if (laborBookIssuedDate !== undefined) setData.laborBookIssuedDate = laborBookIssuedDate || null;
+    if (contractEndDate !== undefined) setData.contractEndDate = contractEndDate || null;
+    if (probationMonths !== undefined) setData.probationMonths = probationMonths ? parseInt(probationMonths) : 0;
 
     const [updated] = await db.update(employeesTable)
       .set(setData)
@@ -395,6 +421,15 @@ function formatEmployee(e: any) {
     jshshir: e.jshshir || null,
     passportSeries: e.passportSeries || null,
     birthDate: e.birthDate || null,
+    employmentType: e.employmentType || "informal",
+    hireDate: e.hireDate || null,
+    contractNumber: e.contractNumber || null,
+    laborBookSeries: e.laborBookSeries || null,
+    laborBookNumber: e.laborBookNumber || null,
+    laborBookIssuedBy: e.laborBookIssuedBy || null,
+    laborBookIssuedDate: e.laborBookIssuedDate || null,
+    contractEndDate: e.contractEndDate || null,
+    probationMonths: e.probationMonths || 0,
     createdAt: e.createdAt,
   };
 }

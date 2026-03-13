@@ -25,6 +25,15 @@ export const employeesTable = pgTable("employees", {
   jshshir: varchar("jshshir", { length: 20 }),
   passportSeries: varchar("passport_series", { length: 20 }),
   birthDate: date("birth_date"),
+  employmentType: varchar("employment_type", { length: 20 }).default("informal"),
+  hireDate: date("hire_date"),
+  contractNumber: varchar("contract_number", { length: 50 }),
+  laborBookSeries: varchar("labor_book_series", { length: 20 }),
+  laborBookNumber: varchar("labor_book_number", { length: 30 }),
+  laborBookIssuedBy: varchar("labor_book_issued_by", { length: 255 }),
+  laborBookIssuedDate: date("labor_book_issued_date"),
+  contractEndDate: date("contract_end_date"),
+  probationMonths: integer("probation_months").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -49,12 +49,32 @@ export default function Employees() {
     telegramId: "", departmentId: ""
   });
 
+  const [employmentType, setEmploymentType] = useState<"informal" | "official" | "contract">("informal");
+  const [showSoliqNotice, setShowSoliqNotice] = useState(false);
+  const [lastCreatedEmp, setLastCreatedEmp] = useState<any>(null);
+  const [officialData, setOfficialData] = useState({
+    jshshir: "", passportSeries: "", birthDate: "", hireDate: "",
+    contractNumber: "", probationMonths: "3",
+    laborBookSeries: "", laborBookNumber: "", laborBookIssuedBy: "", laborBookIssuedDate: "",
+    contractEndDate: "",
+  });
+
+  const resetForm = () => {
+    setFormData({ fullName: "", phone: "", position: "", salaryType: "monthly", hourlyRate: 0, monthlySalary: 0, dailyRate: 0, pieceRate: 0, pieceRatePlan: 0, bonusPercent: 0, telegramId: "", departmentId: "" });
+    setEmploymentType("informal");
+    setOfficialData({ jshshir: "", passportSeries: "", birthDate: "", hireDate: "", contractNumber: "", probationMonths: "3", laborBookSeries: "", laborBookNumber: "", laborBookIssuedBy: "", laborBookIssuedDate: "", contractEndDate: "" });
+  };
+
   const createMutation = useCreateEmployee({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (emp: any) => {
         queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
         setIsAddOpen(false);
-        setFormData({ fullName: "", phone: "", position: "", salaryType: "monthly", hourlyRate: 0, monthlySalary: 0, telegramId: "", departmentId: "" });
+        if (employmentType !== "informal") {
+          setLastCreatedEmp(emp);
+          setShowSoliqNotice(true);
+        }
+        resetForm();
       }
     }
   });
@@ -74,6 +94,10 @@ export default function Employees() {
     if (data.salaryType !== "monthly") { data.monthlySalary = 0; }
     if (data.salaryType !== "daily") { data.dailyRate = 0; }
     if (data.salaryType !== "piecerate") { data.pieceRate = 0; data.pieceRatePlan = 0; data.bonusPercent = 0; }
+    data.employmentType = employmentType;
+    if (employmentType !== "informal") {
+      Object.assign(data, officialData);
+    }
     createMutation.mutate({ data });
   };
 
@@ -271,94 +295,249 @@ export default function Employees() {
       </div>
 
       {/* Add Employee Dialog */}
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[500px] rounded-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-display">{t('add_employee')}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2 col-span-2">
-                <Label>{t('name')}</Label>
-                <Input required value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} className="rounded-xl" placeholder="Ism Familya" />
+      <Dialog open={isAddOpen} onOpenChange={v => { setIsAddOpen(v); if (!v) resetForm(); }}>
+        <DialogContent className="sm:max-w-[580px] rounded-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div className="p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-display">{t('add_employee')}</DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <form onSubmit={handleCreate} className="space-y-0">
+            {/* === EMPLOYMENT TYPE SELECTION === */}
+            <div className="px-6 pt-4 pb-2">
+              <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 block">Mehnat shakli</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { type: "informal" as const, icon: "🤝", title: "Ixtiyoriy", desc: "Hujjatsiz yoki norasmiy", color: "border-gray-300 bg-gray-50" },
+                  { type: "official" as const, icon: "📋", title: "Rasmiy", desc: "Mehnat daftarcha bilan", color: "border-blue-400 bg-blue-50" },
+                  { type: "contract" as const, icon: "📝", title: "Yollanma", desc: "Shartnoma asosida", color: "border-purple-400 bg-purple-50" },
+                ].map(opt => (
+                  <button
+                    key={opt.type}
+                    type="button"
+                    onClick={() => setEmploymentType(opt.type)}
+                    className={`rounded-xl border-2 p-3 text-left transition-all ${employmentType === opt.type ? opt.color + " shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}`}
+                  >
+                    <div className="text-xl mb-1">{opt.icon}</div>
+                    <div className="font-semibold text-sm">{opt.title}</div>
+                    <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                  </button>
+                ))}
               </div>
-              <div className="space-y-2">
-                <Label>{t('phone')}</Label>
-                <Input required value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="rounded-xl" placeholder="+998901234567" />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('position')}</Label>
-                <Input required value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} className="rounded-xl" placeholder="Lavozim" />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label>{t('salary_type')}</Label>
-                <Select value={formData.salaryType} onValueChange={(v: any) => setFormData({ ...formData, salaryType: v })}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">📅 Oylik maosh</SelectItem>
-                    <SelectItem value="hourly">⏱ Soatlik stavka</SelectItem>
-                    <SelectItem value="daily">☀️ Kunlik stavka</SelectItem>
-                    <SelectItem value="piecerate">🎯 Ishbay (dona bo'yicha)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {formData.salaryType === 'monthly' && (
-                <div className="space-y-2 col-span-2">
-                  <Label>Oylik maosh (so'm)</Label>
-                  <Input type="number" value={formData.monthlySalary} onChange={e => setFormData({ ...formData, monthlySalary: Number(e.target.value) })} className="rounded-xl" placeholder="3000000" />
+            </div>
+
+            {/* === ASOSIY MA'LUMOTLAR === */}
+            <div className="px-6 pt-4 space-y-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Asosiy ma'lumotlar</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label>{t('name')}</Label>
+                  <Input required value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} className="rounded-xl" placeholder="Ism Familya Sharif" />
                 </div>
-              )}
-              {formData.salaryType === 'hourly' && (
-                <div className="space-y-2 col-span-2">
-                  <Label>Soatlik stavka (so'm)</Label>
-                  <Input type="number" value={formData.hourlyRate} onChange={e => setFormData({ ...formData, hourlyRate: Number(e.target.value) })} className="rounded-xl" placeholder="25000" />
+                <div className="space-y-1.5">
+                  <Label>{t('phone')}</Label>
+                  <Input required value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="rounded-xl" placeholder="+998901234567" />
                 </div>
-              )}
-              {formData.salaryType === 'daily' && (
-                <div className="space-y-2 col-span-2">
-                  <Label>Kunlik stavka (so'm)</Label>
-                  <Input type="number" value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: Number(e.target.value) })} className="rounded-xl" placeholder="150000" />
+                <div className="space-y-1.5">
+                  <Label>{t('position')}</Label>
+                  <Input required value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} className="rounded-xl" placeholder="Lavozim" />
                 </div>
-              )}
-              {formData.salaryType === 'piecerate' && (
-                <>
-                  <div className="space-y-2">
-                    <Label>1 dona narxi (so'm)</Label>
-                    <Input type="number" value={formData.pieceRate} onChange={e => setFormData({ ...formData, pieceRate: Number(e.target.value) })} className="rounded-xl" placeholder="5000" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Oylik plan (dona)</Label>
-                    <Input type="number" value={formData.pieceRatePlan} onChange={e => setFormData({ ...formData, pieceRatePlan: Number(e.target.value) })} className="rounded-xl" placeholder="100" />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label>Bonus foizi (plan oshganda, %)</Label>
-                    <Input type="number" value={formData.bonusPercent} onChange={e => setFormData({ ...formData, bonusPercent: Number(e.target.value) })} className="rounded-xl" placeholder="20" />
-                    <p className="text-xs text-muted-foreground">Misol: Plan 100 dona, hodim 150 dona qilsa — 50 dona uchun {formData.bonusPercent}% qo'shimcha bonus</p>
-                  </div>
-                </>
-              )}
-              {(departments as any[]).length > 0 && (
-                <div className="space-y-2 col-span-2">
-                  <Label className="flex items-center gap-1.5"><Building2 className="w-4 h-4" /> Bo'lim</Label>
-                  <Select value={formData.departmentId} onValueChange={v => setFormData({ ...formData, departmentId: v })}>
-                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Bo'lim tanlang (ixtiyoriy)" /></SelectTrigger>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>{t('salary_type')}</Label>
+                  <Select value={formData.salaryType} onValueChange={(v: any) => setFormData({ ...formData, salaryType: v })}>
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Belgilanmagan</SelectItem>
-                      {(departments as any[]).map((d: any) => (
-                        <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
-                      ))}
+                      <SelectItem value="monthly">📅 Oylik maosh</SelectItem>
+                      <SelectItem value="hourly">⏱ Soatlik stavka</SelectItem>
+                      <SelectItem value="daily">☀️ Kunlik stavka</SelectItem>
+                      <SelectItem value="piecerate">🎯 Ishbay (dona bo'yicha)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              )}
+                {formData.salaryType === 'monthly' && (
+                  <div className="space-y-1.5 col-span-2">
+                    <Label>Oylik maosh (so'm)</Label>
+                    <Input type="number" value={formData.monthlySalary} onChange={e => setFormData({ ...formData, monthlySalary: Number(e.target.value) })} className="rounded-xl" placeholder="3000000" />
+                  </div>
+                )}
+                {formData.salaryType === 'hourly' && (
+                  <div className="space-y-1.5 col-span-2">
+                    <Label>Soatlik stavka (so'm)</Label>
+                    <Input type="number" value={formData.hourlyRate} onChange={e => setFormData({ ...formData, hourlyRate: Number(e.target.value) })} className="rounded-xl" placeholder="25000" />
+                  </div>
+                )}
+                {formData.salaryType === 'daily' && (
+                  <div className="space-y-1.5 col-span-2">
+                    <Label>Kunlik stavka (so'm)</Label>
+                    <Input type="number" value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: Number(e.target.value) })} className="rounded-xl" placeholder="150000" />
+                  </div>
+                )}
+                {formData.salaryType === 'piecerate' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>1 dona narxi (so'm)</Label>
+                      <Input type="number" value={formData.pieceRate} onChange={e => setFormData({ ...formData, pieceRate: Number(e.target.value) })} className="rounded-xl" placeholder="5000" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Oylik plan (dona)</Label>
+                      <Input type="number" value={formData.pieceRatePlan} onChange={e => setFormData({ ...formData, pieceRatePlan: Number(e.target.value) })} className="rounded-xl" placeholder="100" />
+                    </div>
+                    <div className="space-y-1.5 col-span-2">
+                      <Label>Bonus foizi (%)</Label>
+                      <Input type="number" value={formData.bonusPercent} onChange={e => setFormData({ ...formData, bonusPercent: Number(e.target.value) })} className="rounded-xl" placeholder="20" />
+                    </div>
+                  </>
+                )}
+                {(departments as any[]).length > 0 && (
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="flex items-center gap-1.5"><Building2 className="w-4 h-4" /> Bo'lim</Label>
+                    <Select value={formData.departmentId} onValueChange={v => setFormData({ ...formData, departmentId: v })}>
+                      <SelectTrigger className="rounded-xl"><SelectValue placeholder="Bo'lim tanlang (ixtiyoriy)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Belgilanmagan</SelectItem>
+                        {(departments as any[]).map((d: any) => (
+                          <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             </div>
-            <DialogFooter className="mt-6">
-              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="rounded-xl">{t('cancel')}</Button>
-              <Button type="submit" disabled={createMutation.isPending} className="rounded-xl">
-                {createMutation.isPending ? "Saqlanmoqda..." : t('save')}
-              </Button>
-            </DialogFooter>
+
+            {/* === RASMIY / SHARTNOMA QISM === */}
+            {(employmentType === "official" || employmentType === "contract") && (
+              <div className="mx-6 mt-4 rounded-xl border-2 border-blue-200 bg-blue-50/40 p-4 space-y-3">
+                <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                  {employmentType === "official" ? "📋 Rasmiy ishga olish ma'lumotlari" : "📝 Shartnoma ma'lumotlari"}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>JSHSHIR (14 raqam) *</Label>
+                    <Input
+                      value={officialData.jshshir}
+                      onChange={e => setOfficialData(p => ({ ...p, jshshir: e.target.value }))}
+                      className="rounded-xl font-mono"
+                      placeholder="12345678901234"
+                      maxLength={14}
+                      required={employmentType === "official"}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Pasport seriyasi</Label>
+                    <Input
+                      value={officialData.passportSeries}
+                      onChange={e => setOfficialData(p => ({ ...p, passportSeries: e.target.value }))}
+                      className="rounded-xl"
+                      placeholder="AA 1234567"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Tug'ilgan sana</Label>
+                    <Input type="date" value={officialData.birthDate} onChange={e => setOfficialData(p => ({ ...p, birthDate: e.target.value }))} className="rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Ishga kirish sanasi *</Label>
+                    <Input type="date" value={officialData.hireDate} onChange={e => setOfficialData(p => ({ ...p, hireDate: e.target.value }))} className="rounded-xl" required={employmentType === "official"} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Sinov muddati (oy)</Label>
+                    <Input type="number" value={officialData.probationMonths} onChange={e => setOfficialData(p => ({ ...p, probationMonths: e.target.value }))} className="rounded-xl" placeholder="3" min="0" max="6" />
+                  </div>
+                  {employmentType === "contract" && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label>Shartnoma raqami</Label>
+                        <Input value={officialData.contractNumber} onChange={e => setOfficialData(p => ({ ...p, contractNumber: e.target.value }))} className="rounded-xl" placeholder="SH-2025/001" />
+                      </div>
+                      <div className="space-y-1.5 col-span-2">
+                        <Label>Shartnoma tugash sanasi</Label>
+                        <Input type="date" value={officialData.contractEndDate} onChange={e => setOfficialData(p => ({ ...p, contractEndDate: e.target.value }))} className="rounded-xl" />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {employmentType === "official" && (
+                  <>
+                    <div className="border-t border-blue-200 pt-3 mt-1">
+                      <div className="text-xs font-semibold text-blue-700 mb-2">📗 Mehnat daftarcha ma'lumotlari</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>Daftarcha seriyasi</Label>
+                          <Input value={officialData.laborBookSeries} onChange={e => setOfficialData(p => ({ ...p, laborBookSeries: e.target.value }))} className="rounded-xl" placeholder="MD 001234" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Daftarcha raqami</Label>
+                          <Input value={officialData.laborBookNumber} onChange={e => setOfficialData(p => ({ ...p, laborBookNumber: e.target.value }))} className="rounded-xl" placeholder="0001234" />
+                        </div>
+                        <div className="space-y-1.5 col-span-2">
+                          <Label>Kim tomonidan berilgan</Label>
+                          <Input value={officialData.laborBookIssuedBy} onChange={e => setOfficialData(p => ({ ...p, laborBookIssuedBy: e.target.value }))} className="rounded-xl" placeholder="Mehnat va aholini ijtimoiy muhofaza qilish vazirligi" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Berilgan sana</Label>
+                          <Input type="date" value={officialData.laborBookIssuedDate} onChange={e => setOfficialData(p => ({ ...p, laborBookIssuedDate: e.target.value }))} className="rounded-xl" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700 flex gap-2">
+                      <span>⚡</span>
+                      <span>Xodim saqlangandan so'ng ma'lumotlar avtomatik <b>SOLIQ tizimiga yuborish</b> uchun tayyorlanadi.</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="px-6 py-4">
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => { setIsAddOpen(false); resetForm(); }} className="rounded-xl">{t('cancel')}</Button>
+                <Button type="submit" disabled={createMutation.isPending} className="rounded-xl">
+                  {createMutation.isPending ? "Saqlanmoqda..." : t('save')}
+                </Button>
+              </DialogFooter>
+            </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* SOLIQ Notice Dialog */}
+      <Dialog open={showSoliqNotice} onOpenChange={setShowSoliqNotice}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-2xl">🏛</span> SOLIQ tizimiga yuborish
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700">
+              <b className="block mb-1">✅ {lastCreatedEmp?.fullName} — muvaffaqiyatli qo'shildi!</b>
+              {employmentType === "official" ? "Rasmiy xodim sifatida ro'yxatga olindi." : "Yollanma xodim sifatida ro'yxatga olindi."}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Endi bu xodimni <b>SOLIQ.UZ</b> tizimida rasmiy ro'yxatdan o'tkazish kerak. Davlat tizimlari sahifasidan XML faylni yuklab, soliq.uz portaliga yuboring.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="gap-2 rounded-xl"
+                onClick={() => { setShowSoliqNotice(false); window.open("/gov-integration", "_self"); }}
+              >
+                <span>🏛</span> Davlat tizimlari
+              </Button>
+              <Button
+                className="gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => window.open("https://my.soliq.uz", "_blank")}
+              >
+                <span>🔗</span> soliq.uz ochish
+              </Button>
+            </div>
+            <Button variant="ghost" className="w-full text-sm" onClick={() => setShowSoliqNotice(false)}>
+              Keyinroq amalga oshiraman
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
