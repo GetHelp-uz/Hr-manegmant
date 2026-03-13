@@ -21,7 +21,7 @@ export default function PrintQR() {
       ? `/api/employees/all-qr?departmentId=${departmentId}`
       : "/api/employees/all-qr";
     apiClient.get(url)
-      .then((r) => setEmployees(r.data))
+      .then((r) => setEmployees(r?.data || r || []))
       .catch(() => setError("Ma'lumotlarni yuklashda xato yuz berdi"))
       .finally(() => setLoading(false));
   }, [departmentId]);

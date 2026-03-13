@@ -4,7 +4,7 @@ import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Monitor, User, Lock, Eye, EyeOff, Tablet, CheckCircle2 } from "lucide-react";
+import { Monitor, Eye, EyeOff, Tablet, KeyRound, AlertCircle } from "lucide-react";
 
 const KIOSK_STORAGE_KEY = "hr_kiosk_config";
 
@@ -24,10 +24,6 @@ export default function KioskLogin() {
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [devices, setDevices] = useState<any[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<number | null>(null);
-  const [companyInfo, setCompanyInfo] = useState<any>(null);
-  const [step, setStep] = useState<"login" | "device">("login");
   const [remember, setRemember] = useState(true);
 
   useEffect(() => {
@@ -35,9 +31,11 @@ export default function KioskLogin() {
       const saved = localStorage.getItem(KIOSK_STORAGE_KEY);
       if (saved) {
         const cfg: KioskConfig = JSON.parse(saved);
-        setLogin(cfg.login);
-        setPassword(cfg.password);
-        setRemember(true);
+        if (cfg.login && cfg.password) {
+          setLogin(cfg.login);
+          setPassword(cfg.password);
+          setRemember(true);
+        }
       }
     } catch {}
   }, []);
@@ -47,37 +45,36 @@ export default function KioskLogin() {
     setError("");
     setLoading(true);
     try {
-      const result: any = await apiClient.post("/api/auth/login", { login, password });
-      setCompanyInfo(result.company);
-      const devResult: any = await apiClient.get("/api/devices");
-      const devList = devResult?.data || [];
-      setDevices(devList);
-      if (devList.length > 0) setSelectedDevice(devList[0].id);
-      setStep("device");
+      const result: any = await apiClient.post("/api/devices/auth", { login: login.trim(), password: password.trim() });
+
+      if (!result.success) {
+        setError("Login yoki parol noto'g'ri");
+        setLoading(false);
+        return;
+      }
+
+      const config: KioskConfig = {
+        login: login.trim(),
+        password: password.trim(),
+        deviceId: result.device.id,
+        deviceName: result.device.deviceName,
+        companyName: result.company.name,
+        companyId: result.company.id,
+      };
+
+      if (remember) {
+        localStorage.setItem(KIOSK_STORAGE_KEY, JSON.stringify(config));
+      } else {
+        localStorage.removeItem(KIOSK_STORAGE_KEY);
+      }
+
+      setLocation("/kiosk/scan");
     } catch (err: any) {
-      setError(err?.message || "Login yoki parol noto'g'ri");
+      const msg = err?.response?.data?.message || err?.message || "Login yoki parol noto'g'ri";
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleStart = () => {
-    if (!selectedDevice || !companyInfo) return;
-    const dev = devices.find((d) => d.id === selectedDevice);
-    const config: KioskConfig = {
-      login,
-      password,
-      deviceId: selectedDevice,
-      deviceName: dev?.deviceName || "Qurilma",
-      companyName: companyInfo.name,
-      companyId: companyInfo.id,
-    };
-    if (remember) {
-      localStorage.setItem(KIOSK_STORAGE_KEY, JSON.stringify(config));
-    } else {
-      localStorage.removeItem(KIOSK_STORAGE_KEY);
-    }
-    setLocation("/kiosk/scan");
   };
 
   return (
@@ -99,10 +96,10 @@ export default function KioskLogin() {
               { icon: "🔄", title: "24/7 ishlaydi", desc: "Avtomatik tiklanadi, o'chmaydi" },
               { icon: "📊", title: "Real-time", desc: "Telegram va admin panelga yuboriladi" },
             ].map((f) => (
-              <div key={f.title} className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl px-5 py-3">
+              <div key={f.title} className="flex items-center gap-4 bg-white/5 rounded-2xl px-5 py-3 text-left">
                 <span className="text-2xl">{f.icon}</span>
-                <div className="text-left">
-                  <p className="font-semibold text-white text-sm">{f.title}</p>
+                <div>
+                  <p className="text-white font-semibold text-sm">{f.title}</p>
                   <p className="text-slate-500 text-xs">{f.desc}</p>
                 </div>
               </div>
@@ -111,127 +108,102 @@ export default function KioskLogin() {
         </div>
       </div>
 
-      <div className="flex-1 lg:max-w-md flex flex-col items-center justify-center p-8">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-600/30">
-              <Monitor className="w-7 h-7 text-white" />
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-sm space-y-8">
+          <div className="lg:hidden flex flex-col items-center mb-2">
+            <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+              <Tablet className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-white">
-              {step === "login" ? "Kiosk kirish" : "Qurilmani tanlang"}
-            </h2>
-            <p className="text-slate-400 mt-1 text-sm">
-              {step === "login" ? "Korxona admin hisobini kiriting" : `${companyInfo?.name} — Qaysi qurilma?`}
+            <h1 className="text-2xl font-bold text-white">Kiosk Rejimi</h1>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold text-white">Qurilmaga kirish</h2>
+            <p className="text-slate-400 mt-2 text-sm">
+              Qurilma login va parolini kiriting. Bu ma'lumotlarni admin panelning{" "}
+              <strong className="text-slate-300">Qurilmalar</strong> bo'limidan oling.
             </p>
           </div>
 
-          {step === "login" ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-slate-300 font-medium text-sm">Login</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
-                  <Input
-                    value={login}
-                    onChange={(e) => setLogin(e.target.value)}
-                    placeholder="admin_login"
-                    className="pl-10 h-12 bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 rounded-xl focus:border-emerald-500"
-                    required autoComplete="username"
-                  />
-                </div>
-              </div>
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <Label className="text-slate-300 text-sm font-medium flex items-center gap-2">
+                <Monitor className="w-4 h-4" /> Qurilma logini
+              </Label>
+              <Input
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                placeholder="kiosk_1_2"
+                required
+                autoComplete="username"
+                className="h-12 bg-slate-900 border-slate-700 text-white placeholder:text-slate-600 rounded-xl focus:border-emerald-500 font-mono"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label className="text-slate-300 font-medium text-sm">Parol</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
-                  <Input
-                    type={showPwd ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="pl-10 pr-10 h-12 bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 rounded-xl focus:border-emerald-500"
-                    required autoComplete="current-password"
-                  />
-                  <button type="button" onClick={() => setShowPwd((s) => !s)}
-                    className="absolute right-3 top-3.5 text-slate-500 hover:text-slate-300">
-                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-
-              <Button type="submit" disabled={loading}
-                className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-lg shadow-emerald-600/25">
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Tekshirilmoqda...
-                  </span>
-                ) : "Davom etish"}
-              </Button>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              {devices.length === 0 ? (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4 text-sm text-yellow-400 text-center">
-                  Hech qanday qurilma topilmadi.<br />
-                  <span className="text-slate-400">Admin panelda "Qurilmalar" bo'limida qo'shing.</span>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {devices.map((dev: any) => (
-                    <button
-                      key={dev.id}
-                      onClick={() => setSelectedDevice(dev.id)}
-                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl border transition-all text-left ${
-                        selectedDevice === dev.id
-                          ? "border-emerald-500 bg-emerald-500/10"
-                          : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                      }`}
-                    >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedDevice === dev.id ? "bg-emerald-600" : "bg-slate-700"}`}>
-                        <Monitor className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-white text-sm">{dev.deviceName}</p>
-                        <p className="text-slate-500 text-xs">{dev.location || "Joylashuv ko'rsatilmagan"}</p>
-                      </div>
-                      {selectedDevice === dev.id && (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <label className="flex items-center gap-3 cursor-pointer px-1">
-                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-600 text-emerald-600 bg-slate-800" />
-                <span className="text-sm text-slate-400">Ushbu qurilmada eslab qol (avtomatik kirish)</span>
-              </label>
-
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep("login")}
-                  className="flex-1 h-12 border-slate-700 text-slate-300 hover:bg-slate-800 rounded-xl">
-                  Orqaga
-                </Button>
-                <Button onClick={handleStart} disabled={!selectedDevice || devices.length === 0}
-                  className="flex-2 flex-1 h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-lg shadow-emerald-600/25">
-                  Kiosk boshlash
-                </Button>
+            <div className="space-y-2">
+              <Label className="text-slate-300 text-sm font-medium flex items-center gap-2">
+                <KeyRound className="w-4 h-4" /> Parol
+              </Label>
+              <div className="relative">
+                <Input
+                  type={showPwd ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Parolni kiriting"
+                  required
+                  autoComplete="current-password"
+                  className="h-12 bg-slate-900 border-slate-700 text-white placeholder:text-slate-600 rounded-xl focus:border-emerald-500 pr-12 font-mono tracking-widest"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(!showPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
-          )}
 
-          <p className="text-center text-slate-600 text-xs mt-8">
-            Kiosk rejimida sahifa 24 soat ochiq qoladi
-          </p>
+            {error && (
+              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+
+            <label className="flex items-center gap-3 cursor-pointer px-1">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-600 text-emerald-600 bg-slate-800"
+              />
+              <span className="text-sm text-slate-400">Ushbu qurilmada eslab qol (avtomatik kirish)</span>
+            </label>
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold text-base shadow-lg shadow-emerald-600/25 transition-all"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Tekshirilmoqda...
+                </span>
+              ) : (
+                "Kirishni boshlash"
+              )}
+            </Button>
+          </form>
+
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+            <p className="text-slate-500 text-xs font-medium uppercase tracking-wide mb-2">Yordam</p>
+            <p className="text-slate-400 text-sm">
+              Login va parolni olish uchun: Admin paneli →{" "}
+              <strong className="text-slate-300">Qurilmalar</strong> → qurilma kartasini oching.
+            </p>
+          </div>
         </div>
       </div>
     </div>

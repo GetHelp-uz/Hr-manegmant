@@ -52,6 +52,8 @@ const DDL_STATEMENTS: [string, string][] = [
     monthly_limit integer DEFAULT 500,
     UNIQUE(company_id)
   )`, "company_ai_access"],
+  [`ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_login varchar(100)`, "devices.device_login"],
+  [`ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_password varchar(100)`, "devices.device_password"],
   [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS face_descriptor text`, "employees.face_descriptor"],
   [`ALTER TABLE companies ADD COLUMN IF NOT EXISTS attendance_method varchar(20) DEFAULT 'qr'`, "companies.attendance_method"],
   [`CREATE TABLE IF NOT EXISTS platform_face_settings (

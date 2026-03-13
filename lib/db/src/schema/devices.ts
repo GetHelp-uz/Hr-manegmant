@@ -8,6 +8,8 @@ export const devicesTable = pgTable("devices", {
   companyId: integer("company_id").references(() => companiesTable.id).notNull(),
   deviceName: varchar("device_name", { length: 255 }).notNull(),
   location: varchar("location", { length: 255 }).notNull(),
+  deviceLogin: varchar("device_login", { length: 100 }),
+  devicePassword: varchar("device_password", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
