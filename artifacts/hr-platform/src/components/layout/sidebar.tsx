@@ -22,6 +22,7 @@ import {
   Clock4,
   User,
   ShieldCheck,
+  Plug,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation, type Language } from "@/lib/i18n";
@@ -97,6 +98,7 @@ export function Sidebar() {
       { name: t('staff'), href: "/staff", icon: UserCog, roles: ["admin"] },
       { name: t('shifts'), href: "/shifts", icon: Clock4, roles: ["admin"] },
       { name: t('audit_log'), href: "/audit-log", icon: ShieldCheck, roles: ["admin"] },
+      { name: t('integrations'), href: "/integrations", icon: Plug, roles: ["admin"] },
       { name: t('my_page'), href: "/me", icon: User, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
       { name: t('settings'), href: "/settings", icon: Settings, roles: ["admin"] },
     ]},

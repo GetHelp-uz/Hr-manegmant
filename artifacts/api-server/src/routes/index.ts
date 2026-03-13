@@ -21,6 +21,7 @@ import broadcastingRouter from "./broadcasting";
 import shiftsRouter from "./shifts";
 import meRouter from "./me";
 import auditLogRouter from "./audit-log";
+import integrationsRouter from "./integrations";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use("/broadcasting", broadcastingRouter);
 router.use("/shifts", shiftsRouter);
 router.use("/me", meRouter);
 router.use("/audit-log", auditLogRouter);
+router.use("/integrations", integrationsRouter);
 
 export default router;
