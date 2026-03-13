@@ -438,7 +438,7 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
     await bot.sendMessage(
       chatId,
       `🏢 <b>HR Tizimi Botiga Xush Kelibsiz!</b>\n\n` +
-      `🔢 Botdan foydalanish uchun:<br>\n` +
+      `🔢 Botdan foydalanish uchun:\n` +
       `1. Admindan <b>6 raqamli xodim kodingizni</b> oling\n` +
       `2. Shu kodni botga yuboring\n` +
       `3. Yoki QR kodni skanerlang\n\n` +
