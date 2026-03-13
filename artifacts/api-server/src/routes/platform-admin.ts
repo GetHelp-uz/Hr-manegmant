@@ -716,13 +716,11 @@ router.post("/ai-test", requirePlatformAuth, async (req, res) => {
 // ─── SMS ESKIZ SETTINGS ───────────────────────────────────────────
 router.get("/sms-settings", requirePlatformAuth, async (req, res) => {
   try {
-    const rows = await db.execute(sql`
-      SELECT id, provider, email, sender_id, enabled, test_mode, notes, created_at, updated_at
-      FROM platform_sms_settings
-      LIMIT 1
-    `);
-    const row = (rows as any).rows?.[0] || null;
-    return res.json({ settings: row });
+    const rows = await withTimeout(
+      execRows(sql`SELECT id, provider, email, sender_id, enabled, test_mode, notes, created_at, updated_at FROM platform_sms_settings LIMIT 1`).catch(() => []),
+      6000, []
+    );
+    return res.json({ settings: rows[0] || null });
   } catch (err) {
     return res.json({ settings: null });
   }
