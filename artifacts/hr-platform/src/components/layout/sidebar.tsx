@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Radio,
+  Tablet,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
@@ -65,6 +66,7 @@ export function Sidebar() {
       { name: t('attendance'), href: "/attendance", icon: CalendarCheck, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
       { name: "Nazorat Monitor", href: "/monitor", icon: MonitorPlay, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
       { name: t('qr_scanner'), href: "/scanner", icon: ScanLine, roles: ["admin", "hr"] },
+      { name: "Kiosk Rejimi", href: "/kiosk", icon: Tablet, roles: ["admin"] },
       { name: t('devices'), href: "/devices", icon: MonitorSmartphone, roles: ["admin"] },
     ]},
     { group: "So'rovlar", items: [

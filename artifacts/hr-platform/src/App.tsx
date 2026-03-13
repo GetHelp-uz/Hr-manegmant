@@ -31,6 +31,8 @@ import PlatformAdminCompany from "@/pages/platform-admin/company";
 import PlatformAdminSystem from "@/pages/platform-admin/system";
 import PlatformAdminAiSettings from "@/pages/platform-admin/ai-settings";
 import PlatformAdminSmsSettings from "@/pages/platform-admin/sms-settings";
+import KioskLogin from "@/pages/kiosk/login";
+import KioskScan from "@/pages/kiosk/scan";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +66,8 @@ function Router() {
       <Route path="/platform-admin/system" component={PlatformAdminSystem} />
       <Route path="/platform-admin/ai-settings" component={PlatformAdminAiSettings} />
       <Route path="/platform-admin/sms-settings" component={PlatformAdminSmsSettings} />
+      <Route path="/kiosk" component={KioskLogin} />
+      <Route path="/kiosk/scan" component={KioskScan} />
       <Route component={NotFound} />
     </Switch>
   );
