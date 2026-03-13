@@ -3,13 +3,15 @@ import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
 import { useGetCompanyStats, useGetTodayAttendance } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, UserCheck, UserX, Clock, Activity } from "lucide-react";
+import { Users, UserCheck, UserX, Clock, Activity, CalendarDays, DollarSign, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
   const { language } = useAppStore();
   const t = useTranslation(language);
-  
+  const [, navigate] = useLocation();
+
   const { data: stats, isLoading: statsLoading } = useGetCompanyStats();
   const { data: attendance, isLoading: attendanceLoading } = useGetTodayAttendance();
 
@@ -20,13 +22,57 @@ export default function Dashboard() {
     { title: t('late_today'), value: stats?.lateToday || 0, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
   ];
 
+  const pendingLeave = (stats as any)?.pendingLeaveRequests ?? 0;
+  const pendingAdvance = (stats as any)?.pendingAdvanceRequests ?? 0;
+  const hasPending = pendingLeave > 0 || pendingAdvance > 0;
+
   return (
     <AppLayout>
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">{t('dashboard')}</h1>
-          <p className="text-muted-foreground mt-1">Welcome back. Here's what's happening today.</p>
+          <p className="text-muted-foreground mt-1">Bugungi holat va so'nggi ma'lumotlar</p>
         </div>
+
+        {/* Pending requests alert */}
+        {!statsLoading && hasPending && (
+          <div className="flex flex-col sm:flex-row gap-3">
+            {pendingLeave > 0 && (
+              <button
+                onClick={() => navigate("/leave-requests")}
+                className="flex-1 flex items-center gap-3 p-4 rounded-xl border border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                  <CalendarDays className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-amber-700 dark:text-amber-400">
+                    {pendingLeave} ta ta'til so'rovi kutilmoqda
+                  </p>
+                  <p className="text-xs text-amber-600/70">Ko'rish uchun bosing →</p>
+                </div>
+                <AlertCircle className="w-4 h-4 text-amber-500 ml-auto animate-pulse" />
+              </button>
+            )}
+            {pendingAdvance > 0 && (
+              <button
+                onClick={() => navigate("/advances")}
+                className="flex-1 flex items-center gap-3 p-4 rounded-xl border border-violet-400/40 bg-violet-500/10 hover:bg-violet-500/20 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                  <DollarSign className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-violet-700 dark:text-violet-400">
+                    {pendingAdvance} ta avans so'rovi kutilmoqda
+                  </p>
+                  <p className="text-xs text-violet-600/70">Ko'rish uchun bosing →</p>
+                </div>
+                <AlertCircle className="w-4 h-4 text-violet-500 ml-auto animate-pulse" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -93,7 +139,7 @@ export default function Dashboard() {
                           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold
                             ${record.checkIn ? 'bg-green-100 text-green-700 dark:bg-green-500/20' : 'bg-red-100 text-red-700 dark:bg-red-500/20'}
                           `}>
-                            {record.checkIn ? 'Present' : 'Absent'}
+                            {record.checkIn ? 'Keldi' : 'Kelmadi'}
                           </span>
                         </td>
                       </tr>

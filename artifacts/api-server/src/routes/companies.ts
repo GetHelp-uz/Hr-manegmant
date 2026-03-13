@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, companiesTable, employeesTable, devicesTable, attendanceTable } from "@workspace/db";
+import { db, companiesTable, employeesTable, devicesTable, attendanceTable, leaveRequestsTable, advanceRequestsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
@@ -56,14 +56,26 @@ router.get("/stats", requireAuth, async (req, res) => {
       and(eq(attendanceTable.companyId, companyId), sql`DATE(${attendanceTable.createdAt}) = CURRENT_DATE`)
     );
 
+    const [pendingLeaveResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(leaveRequestsTable)
+      .where(and(eq(leaveRequestsTable.companyId, companyId), eq(leaveRequestsTable.status, "pending")));
+
+    const [pendingAdvanceResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(advanceRequestsTable)
+      .where(and(eq(advanceRequestsTable.companyId, companyId), eq(advanceRequestsTable.status, "pending")));
+
     const totalEmployees = totalEmployeesResult?.count ?? 0;
     const totalDevices = totalDevicesResult?.count ?? 0;
     const presentToday = todayAttendance.length;
     const absentToday = Math.max(0, totalEmployees - presentToday);
     const lateToday = todayAttendance.filter(a => (a.lateMinutes || 0) > 0).length;
     const attendanceRate = totalEmployees > 0 ? Math.round((presentToday / totalEmployees) * 100) : 0;
+    const pendingLeaveRequests = pendingLeaveResult?.count ?? 0;
+    const pendingAdvanceRequests = pendingAdvanceResult?.count ?? 0;
 
-    return res.json({ totalEmployees, presentToday, absentToday, lateToday, totalDevices, attendanceRate });
+    return res.json({ totalEmployees, presentToday, absentToday, lateToday, totalDevices, attendanceRate, pendingLeaveRequests, pendingAdvanceRequests });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "server_error" });

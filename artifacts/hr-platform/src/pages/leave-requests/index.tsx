@@ -13,11 +13,10 @@ import { format } from "date-fns";
 
 async function fetchLeaves() {
   const r = await apiClient.get("/api/leave-requests");
-  return r.data as any[];
+  return (Array.isArray(r) ? r : (r as any)?.data ?? []) as any[];
 }
 async function updateStatus(id: number, status: string, adminNote: string) {
-  const r = await apiClient.put(`/api/leave-requests/${id}/status`, { status, adminNote });
-  return r.data;
+  return apiClient.put(`/api/leave-requests/${id}/status`, { status, adminNote });
 }
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
