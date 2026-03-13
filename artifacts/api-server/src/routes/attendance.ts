@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, attendanceTable, employeesTable, companiesTable } from "@workspace/db";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
-import { sendTelegramMessage } from "../lib/telegram-bot";
+import { sendTelegramMessage, sendTelegramPhoto } from "../lib/telegram-bot";
 
 function calcLateMinutes(checkIn: Date, workStartTime: string, thresholdMinutes: number): number {
   const [h, m] = workStartTime.split(":").map(Number);
@@ -17,7 +17,7 @@ const router: IRouter = Router();
 
 router.post("/scan", async (req, res) => {
   try {
-    const { qrData, deviceId } = req.body;
+    const { qrData, deviceId, photo } = req.body;
     if (!qrData) return res.status(400).json({ error: "invalid_qr", message: "QR data required" });
 
     let parsed: { employee_id: number; company_id: number };
@@ -52,15 +52,22 @@ router.post("/scan", async (req, res) => {
       const status = lateMinutes > 0 ? "late" : "present";
 
       const [newRecord] = await db.insert(attendanceTable).values({
-        employeeId: employee_id, companyId: company_id, checkIn: now, lateMinutes, status, deviceId: deviceId || null,
+        employeeId: employee_id, companyId: company_id, checkIn: now, lateMinutes, status,
+        deviceId: deviceId || null, selfiePhoto: photo || null,
       }).returning();
 
+      const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const lateText = lateMinutes > 0 ? `\n⚠️ Kechikish: <b>${lateMinutes} daqiqa</b>` : "";
+
       if (employee.telegramId) {
-        const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
-        const lateText = lateMinutes > 0 ? `\n⚠️ Kechikish: <b>${lateMinutes} daqiqa</b>` : "";
         await sendTelegramMessage(employee.telegramId,
           `✅ <b>Ishga keldingiz!</b>\n\n👤 ${employee.fullName}\n🕐 Kelish vaqti: <b>${formatTime(now)}</b>\n📅 Sana: ${date}${lateText}`
         ).catch(() => {});
+      }
+
+      if (company?.telegramAdminId && photo) {
+        const caption = `📸 <b>Keldi: ${employee.fullName}</b>\n🕐 ${formatTime(now)} — ${date}${lateText}`;
+        await sendTelegramPhoto(company.telegramAdminId, photo, caption).catch(() => {});
       }
 
       return res.json({
@@ -75,15 +82,21 @@ router.post("/scan", async (req, res) => {
       const workHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
       const [updated] = await db.update(attendanceTable)
-        .set({ checkOut: now, workHours: workHours.toFixed(2) })
+        .set({ checkOut: now, workHours: workHours.toFixed(2), selfiePhoto: photo || todayRecord.selfiePhoto || null })
         .where(eq(attendanceTable.id, todayRecord.id))
         .returning();
 
+      const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+
       if (employee.telegramId) {
-        const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
         await sendTelegramMessage(employee.telegramId,
           `🏁 <b>Ish yakunlandi!</b>\n\n👤 ${employee.fullName}\n🕐 Ketish vaqti: <b>${formatTime(now)}</b>\n⏱ Ishlagan vaqt: <b>${workHours.toFixed(1)} soat</b>\n📅 Sana: ${date}`
         ).catch(() => {});
+      }
+
+      if (company?.telegramAdminId && photo) {
+        const caption = `🏁 <b>Ketdi: ${employee.fullName}</b>\n🕐 ${formatTime(now)} — ${date}\n⏱ Ishlagan: <b>${workHours.toFixed(1)} soat</b>`;
+        await sendTelegramPhoto(company.telegramAdminId, photo, caption).catch(() => {});
       }
 
       return res.json({

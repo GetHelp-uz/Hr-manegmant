@@ -12,6 +12,7 @@ import departmentsRouter from "./departments";
 import leaveRequestsRouter from "./leave_requests";
 import settingsRouter from "./settings";
 import joinRouter from "./join";
+import advancesRouter from "./advances";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use("/departments", departmentsRouter);
 router.use("/leave-requests", leaveRequestsRouter);
 router.use("/settings", settingsRouter);
 router.use("/join", joinRouter);
+router.use("/advances", advancesRouter);
 
 export default router;

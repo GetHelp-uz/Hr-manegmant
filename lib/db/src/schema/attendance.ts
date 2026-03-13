@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, numeric, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, numeric, timestamp, varchar, text } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { companiesTable } from "./companies";
@@ -15,6 +15,7 @@ export const attendanceTable = pgTable("attendance", {
   lateMinutes: integer("late_minutes").default(0),
   status: varchar("status", { length: 50 }).default("present"),
   deviceId: integer("device_id").references(() => devicesTable.id),
+  selfiePhoto: text("selfie_photo"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

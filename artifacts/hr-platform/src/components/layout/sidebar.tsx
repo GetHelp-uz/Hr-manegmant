@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Building2,
   CalendarDays,
+  HandCoins,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
@@ -32,12 +33,20 @@ export function Sidebar() {
   });
   const pendingCount = leaveRequests.filter((r: any) => r.status === "pending").length;
 
+  const { data: advancesData } = useQuery({
+    queryKey: ["/api/advances", "pending"],
+    queryFn: async () => { const r = await apiClient.get("/api/advances?status=pending"); return r.data as any[]; },
+    refetchInterval: 30000,
+  });
+  const pendingAdvances = (advancesData as any[] | undefined)?.length || 0;
+
   const navigation = [
     { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard },
     { name: t('employees'), href: "/employees", icon: Users },
     { name: "Bo'limlar", href: "/departments", icon: Building2 },
     { name: t('attendance'), href: "/attendance", icon: CalendarCheck },
     { name: "Ta'til So'rovlar", href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined },
+    { name: "Avans So'rovlar", href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined },
     { name: t('qr_scanner'), href: "/scanner", icon: ScanLine },
     { name: t('devices'), href: "/devices", icon: MonitorSmartphone },
     { name: t('payroll'), href: "/payroll", icon: Banknote },

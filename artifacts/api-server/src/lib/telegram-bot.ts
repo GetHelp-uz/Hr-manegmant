@@ -1,5 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
-import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable } from "@workspace/db";
+import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable, advanceRequestsTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 
 let bot: TelegramBot | null = null;
@@ -36,6 +36,17 @@ export async function sendTelegramMessage(telegramId: string, message: string) {
   }
 }
 
+export async function sendTelegramPhoto(telegramId: string, photoBase64: string, caption?: string) {
+  if (!bot) return;
+  try {
+    const base64Data = photoBase64.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, "base64");
+    await bot.sendPhoto(telegramId, buffer, { caption, parse_mode: "HTML" });
+  } catch (err) {
+    console.error("Failed to send Telegram photo:", err);
+  }
+}
+
 async function getEmployee(chatId: string) {
   const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.telegramId, chatId));
   return emp || null;
@@ -48,7 +59,7 @@ function mainMenu() {
         [{ text: "📅 Bugungi davomat" }, { text: "💰 Oylik maosh" }],
         [{ text: "📊 Davomat tarixi" }, { text: "ℹ️ Ma'lumotlarim" }],
         [{ text: "🏖 Ta'til so'rash" }, { text: "🤒 Kasallik/Ruxsat" }],
-        [{ text: "📋 So'rovlarim" }],
+        [{ text: "💵 Avans so'rash" }, { text: "📋 So'rovlarim" }],
       ],
       resize_keyboard: true,
     },
@@ -97,6 +108,8 @@ function setupHandlers(bot: TelegramBot) {
       await startLeaveRequest(bot, chatId, "sick");
     } else if (text === "/sorov" || text === "📋 So'rovlarim") {
       await handleSorov(bot, chatId);
+    } else if (text === "/avans" || text === "💵 Avans so'rash") {
+      await startAvansRequest(bot, chatId);
     } else if (text === "/help" || text === "/menu") {
       const emp = await getEmployee(chatId);
       if (emp) {
@@ -257,6 +270,50 @@ async function handleConversation(bot: TelegramBot, chatId: string, text: string
     }
     return;
   }
+
+  if (state.step === "avans_amount") {
+    const amount = parseFloat(text.replace(/\s/g, "").replace(",", "."));
+    if (isNaN(amount) || amount <= 0) {
+      await bot.sendMessage(chatId, `❌ Noto'g'ri miqdor. Raqam kiriting:\n<i>Misol: 500000</i>`, { parse_mode: "HTML", ...cancelMenu() as any });
+      return;
+    }
+    userState[chatId].step = "avans_reason";
+    userState[chatId].data.amount = amount;
+    await bot.sendMessage(chatId, `📝 Avans sababini yozing:`, cancelMenu() as any);
+    return;
+  }
+
+  if (state.step === "avans_reason") {
+    const { amount, employeeId, companyId } = state.data;
+    const reason = text;
+    delete userState[chatId];
+
+    try {
+      await db.insert(advanceRequestsTable).values({
+        employeeId, companyId, amount: amount.toString(), reason, status: "pending",
+      });
+
+      const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId));
+      const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, employeeId));
+
+      if (company?.telegramAdminId) {
+        await sendTelegramMessage(
+          company.telegramAdminId,
+          `💵 <b>Avans so'rovi!</b>\n\n👤 ${emp?.fullName}\n💰 Miqdor: <b>${Number(amount).toLocaleString()} so'm</b>\n📝 Sabab: ${reason}\n\n✅ Admin paneldan tasdiqlang.`
+        ).catch(() => {});
+      }
+
+      await bot.sendMessage(
+        chatId,
+        `✅ <b>Avans so'rovi yuborildi!</b>\n\n💰 Miqdor: <b>${Number(amount).toLocaleString()} so'm</b>\n📝 Sabab: ${reason}\n\n⏳ Admin tasdiqlashini kuting.`,
+        { parse_mode: "HTML", ...mainMenu() }
+      );
+    } catch (err) {
+      console.error(err);
+      await bot.sendMessage(chatId, "❌ Xatolik yuz berdi.", mainMenu() as any);
+    }
+    return;
+  }
 }
 
 async function startLeaveRequest(bot: TelegramBot, chatId: string, type: "vacation" | "sick" | "other") {
@@ -271,6 +328,20 @@ async function startLeaveRequest(bot: TelegramBot, chatId: string, type: "vacati
   await bot.sendMessage(
     chatId,
     `📋 <b>${typeLabel[type]} so'rovi</b>\n\nBoshlash sanasini kiriting (YYYY-MM-DD):\n<i>Misol: 2025-04-10</i>`,
+    { parse_mode: "HTML", ...cancelMenu() as any }
+  );
+}
+
+async function startAvansRequest(bot: TelegramBot, chatId: string) {
+  const emp = await getEmployee(chatId);
+  if (!emp) {
+    await bot.sendMessage(chatId, `❌ Siz tizimga ulanmagansiz. Kompaniya QR kodini skanerlang.`);
+    return;
+  }
+  userState[chatId] = { step: "avans_amount", data: { employeeId: emp.id, companyId: emp.companyId } };
+  await bot.sendMessage(
+    chatId,
+    `💵 <b>Avans so'rovi</b>\n\nSo'ramoqchi bo'lgan miqdorni kiriting (so'mda):\n<i>Misol: 500000</i>`,
     { parse_mode: "HTML", ...cancelMenu() as any }
   );
 }
