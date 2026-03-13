@@ -52,6 +52,8 @@ const DDL_STATEMENTS: [string, string][] = [
     monthly_limit integer DEFAULT 500,
     UNIQUE(company_id)
   )`, "company_ai_access"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS employee_code varchar(20)`, "employees.employee_code"],
+  [`CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_code ON employees(employee_code) WHERE employee_code IS NOT NULL`, "employees.employee_code_idx"],
   [`ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_login varchar(100)`, "devices.device_login"],
   [`ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_password varchar(100)`, "devices.device_password"],
   [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS face_descriptor text`, "employees.face_descriptor"],

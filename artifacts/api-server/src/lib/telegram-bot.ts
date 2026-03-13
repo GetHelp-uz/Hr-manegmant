@@ -1,6 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
-import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable, advanceRequestsTable } from "@workspace/db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable, advanceRequestsTable, departmentsTable } from "@workspace/db";
+import { eq, and, sql, desc, ilike } from "drizzle-orm";
 
 function formatTimeBotLocal(d: Date): string {
   return d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
@@ -204,6 +204,18 @@ function setupHandlers(bot: TelegramBot) {
       return;
     }
 
+    // Employee code: 6-digit number → attendance registration
+    if (/^\d{6,7}$/.test(text)) {
+      await handleEmployeeCode(bot, chatId, text);
+      return;
+    }
+
+    // Admin broadcast command: /yubor
+    if (text.startsWith("/yubor") || text.startsWith("📢 Yuborish")) {
+      await handleAdminBroadcast(bot, chatId, text);
+      return;
+    }
+
     if (text.startsWith("/start")) {
       await handleStart(bot, chatId, text, msg);
     } else if (text === "/bugun" || text === "📅 Bugungi davomat") {
@@ -227,7 +239,7 @@ function setupHandlers(bot: TelegramBot) {
       if (emp) {
         await bot.sendMessage(chatId, `🏢 <b>HR Tizimi Bot</b>\n\nQuyidagi tugmalardan foydalaning:`, { parse_mode: "HTML", ...mainMenu() });
       } else {
-        await bot.sendMessage(chatId, `🏢 <b>HR Tizimi Botiga Xush Kelibsiz!</b>\n\nBotga ulanish uchun kompaniya QR kodini skanerlang.`, { parse_mode: "HTML" });
+        await bot.sendMessage(chatId, `🏢 <b>HR Tizimi Botiga Xush Kelibsiz!</b>\n\n🔢 Xodim kodingizni yuboring (6 raqamli) yoki QR kodni skanerlang.`, { parse_mode: "HTML" });
       }
     }
   });
@@ -235,6 +247,138 @@ function setupHandlers(bot: TelegramBot) {
   bot.on("polling_error", (err) => {
     console.error("Telegram polling error:", err.message);
   });
+}
+
+async function handleEmployeeCode(bot: TelegramBot, chatId: string, code: string) {
+  try {
+    const [employee] = await db.select().from(employeesTable)
+      .where(eq(employeesTable.employeeCode, code));
+
+    if (!employee) {
+      await bot.sendMessage(chatId, `❌ <b>${code}</b> — bu kod tizimda topilmadi.\n\nAdminingizdan to'g'ri xodim kodini oling.`, { parse_mode: "HTML" });
+      return;
+    }
+
+    if (!employee.telegramId) {
+      await db.update(employeesTable).set({ telegramId: chatId }).where(eq(employeesTable.id, employee.id));
+      const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, employee.companyId));
+      await bot.sendMessage(chatId,
+        `✅ <b>Muvaffaqiyatli ulandi!</b>\n\n👤 ${employee.fullName}\n🏢 ${company?.name || "—"}\n📋 ${employee.position}\n\n📲 Har kuni shu kodni yuboring — davomat qayd etiladi!`,
+        { parse_mode: "HTML" }
+      );
+      const linkedEmp = { ...employee, telegramId: chatId };
+      await registerQrAttendance(bot, chatId, linkedEmp);
+      return;
+    }
+
+    if (employee.telegramId !== chatId) {
+      await bot.sendMessage(chatId, `❌ Bu kod boshqa foydalanuvchiga bog'liq. Agar bu sizning kodingiz bo'lsa, adminга murojaat qiling.`);
+      return;
+    }
+
+    await registerQrAttendance(bot, chatId, employee);
+  } catch (err) {
+    console.error("[handleEmployeeCode]", err);
+    await bot.sendMessage(chatId, "❌ Xatolik yuz berdi. Qayta urinib ko'ring.");
+  }
+}
+
+async function handleAdminBroadcast(bot: TelegramBot, chatId: string, text: string) {
+  try {
+    const company = await db.select().from(companiesTable)
+      .where(eq(companiesTable.telegramAdminId, chatId))
+      .then(r => r[0] || null);
+
+    if (!company) {
+      await bot.sendMessage(chatId, `❌ Ushbu buyruq faqat kompaniya adminlari uchun.\n\nAdmin sifatida sozlamalar bo'limida Telegram admin ID'ingizni kiriting.`);
+      return;
+    }
+
+    const parts = text.replace("/yubor", "").trim().split(" ");
+    const target = parts[0]?.toLowerCase() || "";
+    const message = parts.slice(1).join(" ").trim();
+
+    if (!message) {
+      await bot.sendMessage(chatId,
+        `📢 <b>Ommaviy xabar yuborish</b>\n\n` +
+        `Foydalanish:\n` +
+        `• <code>/yubor hammaga [matn]</code> — hamma xodimlarga\n` +
+        `• <code>/yubor bolim [bolim nomi] [matn]</code> — bo'lim xodimlariga\n` +
+        `• <code>/yubor [xodim kodi] [matn]</code> — bitta xodimga\n\n` +
+        `Misol: <code>/yubor hammaga Bugun ish 9 da boshlanadi</code>`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    let employees: any[] = [];
+
+    if (target === "hammaga") {
+      employees = await db.select().from(employeesTable)
+        .where(and(eq(employeesTable.companyId, company.id), eq(employeesTable.status, "active")));
+    } else if (target === "bolim") {
+      const deptName = parts[1]?.trim() || "";
+      const msgText = parts.slice(2).join(" ").trim();
+      if (!deptName || !msgText) {
+        await bot.sendMessage(chatId, `❌ To'g'ri format: /yubor bolim [bo'lim nomi] [matn]`);
+        return;
+      }
+      const [dept] = await db.select().from(departmentsTable)
+        .where(and(eq(departmentsTable.companyId, company.id), ilike(departmentsTable.name, `%${deptName}%`)));
+      if (!dept) {
+        await bot.sendMessage(chatId, `❌ "<b>${deptName}</b>" nomli bo'lim topilmadi.`, { parse_mode: "HTML" });
+        return;
+      }
+      employees = await db.select().from(employeesTable)
+        .where(and(eq(employeesTable.companyId, company.id), eq(employeesTable.departmentId, dept.id), eq(employeesTable.status, "active")));
+      const finalMsg = msgText;
+      let sent = 0, failed = 0;
+      for (const emp of employees) {
+        if (!emp.telegramId) continue;
+        try { await bot.sendMessage(emp.telegramId, `📢 ${finalMsg}`, { parse_mode: "HTML" }); sent++; }
+        catch { failed++; }
+        await new Promise(r => setTimeout(r, 60));
+      }
+      await bot.sendMessage(chatId, `✅ <b>${dept.name}</b> bo'limiga yuborildi\n📤 Yuborildi: ${sent}\n❌ Yuborilmadi: ${failed}`, { parse_mode: "HTML" });
+      return;
+    } else if (/^\d{6,7}$/.test(target)) {
+      const [emp] = await db.select().from(employeesTable)
+        .where(and(eq(employeesTable.employeeCode, target), eq(employeesTable.companyId, company.id)));
+      if (!emp) {
+        await bot.sendMessage(chatId, `❌ <b>${target}</b> kodli xodim topilmadi.`, { parse_mode: "HTML" });
+        return;
+      }
+      if (!emp.telegramId) {
+        await bot.sendMessage(chatId, `❌ Bu xodim hali botga ulanmagan.`);
+        return;
+      }
+      await bot.sendMessage(emp.telegramId, `📢 ${message}`, { parse_mode: "HTML" });
+      await bot.sendMessage(chatId, `✅ <b>${emp.fullName}</b> ga xabar yuborildi.`, { parse_mode: "HTML" });
+      return;
+    } else {
+      await bot.sendMessage(chatId,
+        `❌ Noto'g'ri buyruq.\n\nMisol:\n• <code>/yubor hammaga [matn]</code>\n• <code>/yubor bolim [nom] [matn]</code>\n• <code>/yubor [xodim kodi] [matn]</code>`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    let sent = 0, failed = 0;
+    for (const emp of employees) {
+      if (!emp.telegramId) continue;
+      try { await bot.sendMessage(emp.telegramId, `📢 ${message}`, { parse_mode: "HTML" }); sent++; }
+      catch { failed++; }
+      await new Promise(r => setTimeout(r, 60));
+    }
+    const total = employees.filter(e => e.telegramId).length;
+    await bot.sendMessage(chatId,
+      `✅ <b>Xabar yuborildi</b>\n\n📤 Yuborildi: ${sent}\n❌ Yuborilmadi: ${failed}\n👥 Jami bot ulangan: ${total}`,
+      { parse_mode: "HTML" }
+    );
+  } catch (err) {
+    console.error("[handleAdminBroadcast]", err);
+    await bot.sendMessage(chatId, "❌ Xatolik yuz berdi.");
+  }
 }
 
 async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: any) {
@@ -282,32 +426,8 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
       return;
     }
 
-    // Company join QR code
-    const joinCode = param.toUpperCase();
-    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.joinCode, joinCode));
-
-    if (!company) {
-      await bot.sendMessage(chatId, `❌ Noto'g'ri kod. Iltimos, to'g'ri QR kodni skanerlang.`);
-      return;
-    }
-
-    const existingEmployee = await getEmployee(chatId);
-    if (existingEmployee) {
-      await bot.sendMessage(
-        chatId,
-        `ℹ️ Siz allaqachon <b>${existingEmployee.fullName}</b> sifatida ro'yxatdasiz.\n\n<b>${company.name}</b> kompaniyasiga ulanish uchun telefon raqamingizni yuboring:`,
-        { parse_mode: "HTML", ...cancelMenu() }
-      );
-      userState[chatId] = { step: "enter_phone_for_join", data: { companyId: company.id, companyName: company.name, joinCode } };
-      return;
-    }
-
-    userState[chatId] = { step: "enter_phone_for_join", data: { companyId: company.id, companyName: company.name, joinCode } };
-    await bot.sendMessage(
-      chatId,
-      `🏢 <b>${company.name}</b> kompaniyasiga ulanish\n\nTasdiqlash uchun telefon raqamingizni yuboring:\n<i>Misol: +998901234567</i>`,
-      { parse_mode: "HTML", ...cancelMenu() }
-    );
+    // Unknown param
+    await bot.sendMessage(chatId, `❌ Noto'g'ri QR kod. Admin bilan bog'laning.`);
     return;
   }
 
@@ -318,8 +438,10 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
     await bot.sendMessage(
       chatId,
       `🏢 <b>HR Tizimi Botiga Xush Kelibsiz!</b>\n\n` +
-      `🔹 Shaxsiy QR kodingizni (admindan oling) skanerlang\n` +
-      `🔹 Kompaniya QR kodini skanerlang va telefon raqamingizni yuboring\n\n` +
+      `🔢 Botdan foydalanish uchun:<br>\n` +
+      `1. Admindan <b>6 raqamli xodim kodingizni</b> oling\n` +
+      `2. Shu kodni botga yuboring\n` +
+      `3. Yoki QR kodni skanerlang\n\n` +
       `📱 Telegram ID: <code>${chatId}</code>`,
       { parse_mode: "HTML" }
     );
@@ -328,37 +450,6 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
 
 async function handleConversation(bot: TelegramBot, chatId: string, text: string, msg: any) {
   const state = userState[chatId];
-
-  if (state.step === "enter_phone_for_join") {
-    const phone = text.replace(/\s/g, "");
-    const [employee] = await db.select().from(employeesTable).where(
-      and(eq(employeesTable.companyId, state.data.companyId), eq(employeesTable.phone, phone))
-    );
-
-    if (!employee) {
-      await bot.sendMessage(
-        chatId,
-        `❌ Bu telefon raqam <b>${state.data.companyName}</b> tizimida topilmadi.\n\nAdministratoringizga murojaat qiling.`,
-        { parse_mode: "HTML" }
-      );
-      delete userState[chatId];
-      return;
-    }
-
-    await db.update(employeesTable).set({ telegramId: chatId }).where(eq(employeesTable.id, employee.id));
-    delete userState[chatId];
-
-    await bot.sendMessage(
-      chatId,
-      `✅ <b>Muvaffaqiyatli ulandi!</b>\n\n` +
-      `👤 Xodim: <b>${employee.fullName}</b>\n` +
-      `🏢 Kompaniya: <b>${state.data.companyName}</b>\n` +
-      `📋 Lavozim: ${employee.position}\n\n` +
-      `Endi menyudan foydalanishingiz mumkin:`,
-      { parse_mode: "HTML", ...mainMenu() }
-    );
-    return;
-  }
 
   if (state.step === "leave_start_date") {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(text) && !/^\d{2}\.\d{2}\.\d{4}$/.test(text)) {

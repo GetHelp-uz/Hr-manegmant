@@ -182,6 +182,7 @@ export default function Employees() {
               <thead className="bg-muted/50 text-muted-foreground text-xs uppercase font-semibold">
                 <tr>
                   <th className="px-6 py-4">{t('name')}</th>
+                  <th className="px-6 py-4 text-center">Kod</th>
                   <th className="px-6 py-4">{t('position')}</th>
                   <th className="px-6 py-4">{t('phone')}</th>
                   <th className="px-6 py-4">{t('salary_type')}</th>
@@ -192,13 +193,26 @@ export default function Employees() {
               </thead>
               <tbody className="divide-y divide-border/50">
                 {isLoading ? (
-                  <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">{t('loading')}</td></tr>
+                  <tr><td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">{t('loading')}</td></tr>
                 ) : (employees?.data?.length ?? 0) === 0 ? (
-                  <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">{t('no_data')}</td></tr>
+                  <tr><td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">{t('no_data')}</td></tr>
                 ) : (
                   employees?.data.map((emp) => (
                     <tr key={emp.id} className="hover:bg-muted/30 transition-colors group">
                       <td className="px-6 py-4 font-semibold text-foreground">{emp.fullName}</td>
+                      <td className="px-6 py-4 text-center">
+                        {(emp as any).employeeCode ? (
+                          <button
+                            className="font-mono text-xs bg-primary/10 text-primary border border-primary/20 rounded px-2 py-0.5 cursor-pointer hover:bg-primary/20 transition-colors"
+                            onClick={() => { navigator.clipboard.writeText((emp as any).employeeCode); }}
+                            title="Nusxalash uchun bosing"
+                          >
+                            {(emp as any).employeeCode}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-muted-foreground">{emp.position}</td>
                       <td className="px-6 py-4 text-muted-foreground">{emp.phone}</td>
                       <td className="px-6 py-4">

@@ -43,10 +43,23 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
+async function generateUniqueEmployeeCode(): Promise<string> {
+  for (let attempts = 0; attempts < 20; attempts++) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const [existing] = await db.select({ id: employeesTable.id })
+      .from(employeesTable)
+      .where(eq(employeesTable.employeeCode, code));
+    if (!existing) return code;
+  }
+  return String(Math.floor(1000000 + Math.random() * 9000000));
+}
+
 router.post("/", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
     const { fullName, phone, position, salaryType, hourlyRate, monthlySalary, telegramId, departmentId } = req.body;
+
+    const employeeCode = await generateUniqueEmployeeCode();
 
     const [employee] = await db.insert(employeesTable).values({
       companyId,
@@ -58,10 +71,11 @@ router.post("/", requireAuth, async (req, res) => {
       monthlySalary: monthlySalary?.toString(),
       telegramId: telegramId || null,
       departmentId: departmentId ? parseInt(departmentId) : null,
+      employeeCode,
     }).returning();
 
-    const qrData = JSON.stringify({ employee_id: employee.id, company_id: companyId, name: employee.fullName });
-    const qrCode = await QRCode.toDataURL(qrData, { width: 300, margin: 1 });
+    const deepLink = `https://t.me/${getBotUsername()}?start=emp_${employee.id}`;
+    const qrCode = await QRCode.toDataURL(deepLink, { width: 300, margin: 1 });
 
     const [updated] = await db.update(employeesTable)
       .set({ qrCode })
@@ -69,13 +83,15 @@ router.post("/", requireAuth, async (req, res) => {
       .returning();
 
     const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId));
-    if (company?.telegramAdminId && qrCode) {
+    if (company?.telegramAdminId) {
       const caption =
         `👤 <b>Yangi xodim qo'shildi!</b>\n\n` +
         `📝 Ism: <b>${employee.fullName}</b>\n` +
         `💼 Lavozim: ${employee.position || "—"}\n` +
-        `📱 Telefon: ${employee.phone}\n\n` +
-        `🔲 Quyidagi QR kodni xodimga bering — davomat skanerlash uchun ishlatadi.`;
+        `📱 Telefon: ${employee.phone}\n` +
+        `🔢 Xodim kodi: <b>${employeeCode}</b>\n\n` +
+        `📲 Bot orqali davomat uchun xodim o'z kodini botga yuboring: <code>${employeeCode}</code>\n` +
+        `🔲 Yoki QR kodni skanerlang.`;
       await sendTelegramPhoto(company.telegramAdminId, qrCode, caption).catch(() => {});
     }
 
@@ -365,6 +381,7 @@ function formatEmployee(e: any) {
     salaryType: e.salaryType,
     hourlyRate: e.hourlyRate ? parseFloat(e.hourlyRate) : null,
     monthlySalary: e.monthlySalary ? parseFloat(e.monthlySalary) : null,
+    employeeCode: e.employeeCode || null,
     qrCode: e.qrCode,
     hasFace: Boolean(e.faceDescriptor),
     telegramId: e.telegramId,

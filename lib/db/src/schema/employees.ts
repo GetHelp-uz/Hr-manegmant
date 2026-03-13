@@ -17,6 +17,7 @@ export const employeesTable = pgTable("employees", {
   pieceRate: numeric("piece_rate", { precision: 15, scale: 2 }),
   pieceRatePlan: integer("piece_rate_plan").default(0),
   bonusPercent: numeric("bonus_percent", { precision: 5, scale: 2 }).default("0"),
+  employeeCode: varchar("employee_code", { length: 20 }),
   qrCode: text("qr_code"),
   faceDescriptor: text("face_descriptor"),
   telegramId: varchar("telegram_id", { length: 100 }),
