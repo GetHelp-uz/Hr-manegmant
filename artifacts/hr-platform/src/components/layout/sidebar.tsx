@@ -42,7 +42,7 @@ export function Sidebar() {
 
   const { data: leaveRequests = [] } = useQuery({
     queryKey: ["/api/leave-requests"],
-    queryFn: async () => { const r = await apiClient.get("/api/leave-requests"); return r.data as any[]; },
+    queryFn: async () => { const r = await apiClient.get("/api/leave-requests"); return (Array.isArray(r) ? r : (r as any)?.data ?? []) as any[]; },
     refetchInterval: 30000,
     enabled: userRole === "admin",
   });
@@ -50,7 +50,7 @@ export function Sidebar() {
 
   const { data: advancesData } = useQuery({
     queryKey: ["/api/advances", "pending"],
-    queryFn: async () => { const r = await apiClient.get("/api/advances?status=pending"); return r.data as any[]; },
+    queryFn: async () => { const r: any = await apiClient.get("/api/advances?status=pending"); return (Array.isArray(r) ? r : r?.data ?? []) as any[]; },
     refetchInterval: 30000,
     enabled: userRole === "admin",
   });

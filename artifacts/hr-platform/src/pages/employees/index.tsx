@@ -38,7 +38,7 @@ export default function Employees() {
 
   const { data: departments = [] } = useQuery({
     queryKey: ["/api/departments"],
-    queryFn: async () => { const r = await apiClient.get("/api/departments"); return r.data as any[]; },
+    queryFn: async () => { const r: any = await apiClient.get("/api/departments"); return (Array.isArray(r) ? r : r?.data ?? []) as any[]; },
   });
 
   const [formData, setFormData] = useState({

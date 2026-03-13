@@ -13,20 +13,16 @@ import { Building2, Save, QrCode, Clock, RefreshCw, Copy, MessageCircle, Downloa
 import { apiClient } from "@/lib/api-client";
 
 async function fetchSettings() {
-  const r = await apiClient.get("/api/settings");
-  return r.data as any;
+  return apiClient.get("/api/settings") as Promise<any>;
 }
 async function updateSettings(data: any) {
-  const r = await apiClient.put("/api/settings", data);
-  return r.data;
+  return apiClient.put("/api/settings", data);
 }
 async function fetchQrCode() {
-  const r = await apiClient.get("/api/settings/qr-code");
-  return r.data as { joinCode: string; deepLink: string; qrCode: string };
+  return apiClient.get("/api/settings/qr-code") as Promise<{ joinCode: string; deepLink: string; qrCode: string }>;
 }
 async function regenerateCode() {
-  const r = await apiClient.post("/api/settings/regenerate-code");
-  return r.data as { joinCode: string };
+  return apiClient.post("/api/settings/regenerate-code") as Promise<{ joinCode: string }>;
 }
 
 export default function Settings() {
@@ -86,8 +82,7 @@ export default function Settings() {
 
   const salaryVisibilityM = useMutation({
     mutationFn: async (show: boolean) => {
-      const r = await apiClient.patch("/api/settings/salary-visibility", { showSalaryToEmployee: show });
-      return r.data;
+      return apiClient.patch("/api/settings/salary-visibility", { showSalaryToEmployee: show });
     },
     onSuccess: (data) => {
       toast({ title: data.showSalaryToEmployee ? "Maosh xodimlarga ko'rsatiladi" : "Maosh xodimlardan yashirildi" });

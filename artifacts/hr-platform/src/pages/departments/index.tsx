@@ -12,23 +12,20 @@ import { Building2, Plus, Trash2, Edit, Users, Wallet, ChevronRight, Zap } from 
 import { apiClient } from "@/lib/api-client";
 
 async function fetchDepts() {
-  const r = await apiClient.get("/api/departments");
-  return r.data as any[];
+  const r: any = await apiClient.get("/api/departments");
+  return (Array.isArray(r) ? r : r?.data ?? []) as any[];
 }
 async function createDept(data: any) {
-  const r = await apiClient.post("/api/departments", data);
-  return r.data;
+  return apiClient.post("/api/departments", data);
 }
 async function updateDept(id: number, data: any) {
-  const r = await apiClient.put(`/api/departments/${id}`, data);
-  return r.data;
+  return apiClient.put(`/api/departments/${id}`, data);
 }
 async function deleteDept(id: number) {
   await apiClient.delete(`/api/departments/${id}`);
 }
 async function applySalary(id: number) {
-  const r = await apiClient.post(`/api/departments/${id}/apply-salary`);
-  return r.data;
+  return apiClient.post(`/api/departments/${id}/apply-salary`);
 }
 
 const emptyForm = { name: "", description: "", baseSalaryType: "monthly", baseMonthlySalary: "", baseHourlyRate: "" };

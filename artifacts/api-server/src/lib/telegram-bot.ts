@@ -172,6 +172,18 @@ function mainMenu() {
         [{ text: "📊 Davomat tarixi" }, { text: "ℹ️ Ma'lumotlarim" }],
         [{ text: "🏖 Ta'til so'rash" }, { text: "🤒 Kasallik/Ruxsat" }],
         [{ text: "💵 Avans so'rash" }, { text: "📋 So'rovlarim" }],
+        [{ text: "🚪 Hisobdan chiqish" }],
+      ],
+      resize_keyboard: true,
+    },
+  };
+}
+
+function logoutConfirmMenu() {
+  return {
+    reply_markup: {
+      keyboard: [
+        [{ text: "✅ Ha, chiqish" }, { text: "❌ Bekor qilish" }],
       ],
       resize_keyboard: true,
     },
@@ -196,6 +208,35 @@ function setupHandlers(bot: TelegramBot) {
       delete userState[chatId];
       const emp = await getEmployee(chatId);
       await bot.sendMessage(chatId, "✅ Bekor qilindi.", { ...(emp ? mainMenu() : {}), parse_mode: "HTML" });
+      return;
+    }
+
+    if (text === "🚪 Hisobdan chiqish") {
+      const emp = await getEmployee(chatId);
+      if (!emp) {
+        await bot.sendMessage(chatId, "❌ Siz hali tizimga ulanmagansiz.", { reply_markup: { remove_keyboard: true } });
+        return;
+      }
+      userState[chatId] = { step: "logout_confirm", data: {} };
+      await bot.sendMessage(chatId,
+        `⚠️ <b>Hisobdan chiqish</b>\n\nSiz <b>${emp.fullName}</b> hisobidan chiqmoqchimisiz?\n\nChiqib ketganingizdan so'ng, qayta kirish uchun xodim kodingizni yoki QR kodni skanerdan o'tkazishingiz kerak bo'ladi.`,
+        { parse_mode: "HTML", ...logoutConfirmMenu() }
+      );
+      return;
+    }
+
+    if (text === "✅ Ha, chiqish" && userState[chatId]?.step === "logout_confirm") {
+      delete userState[chatId];
+      const emp = await getEmployee(chatId);
+      if (emp) {
+        await db.update(employeesTable).set({ telegramId: null }).where(eq(employeesTable.id, emp.id));
+        await bot.sendMessage(chatId,
+          `✅ <b>Muvaffaqiyatli chiqdingiz!</b>\n\n<b>${emp.fullName}</b> hisobingiz bot bilan bog'liqligini uzib oldingiz.\n\nQayta ulanish uchun xodim kodingizni yoki kompaniya QR kodini yuboring.`,
+          { parse_mode: "HTML", reply_markup: { remove_keyboard: true } }
+        );
+      } else {
+        await bot.sendMessage(chatId, "✅ Chiqdingiz.", { reply_markup: { remove_keyboard: true } });
+      }
       return;
     }
 

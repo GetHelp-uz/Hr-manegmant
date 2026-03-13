@@ -83,7 +83,7 @@ export default function AnalyticsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["/api/analytics/overview", month, year],
     queryFn: () => apiClient.get(`/api/analytics/overview?month=${month}&year=${year}`)
-      .then(r => r.data as any),
+      .then((r: any) => (r?.data ?? r) as any),
     staleTime: 30000,
   });
 
