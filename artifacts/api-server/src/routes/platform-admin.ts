@@ -35,6 +35,15 @@ async function logAction(admin: string, action: string, targetType?: string, tar
   } catch {}
 }
 
+// ── SETUP (internal use) ──────────────────────────────────────────────────────
+router.post("/setup", async (req, res) => {
+  const { key } = req.body;
+  if (key !== PLATFORM_PASSWORD) return res.status(403).json({ error: "forbidden" });
+  const { setupAdminTables } = await import("../lib/setup-db");
+  await setupAdminTables();
+  return res.json({ success: true });
+});
+
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 router.post("/login", async (req, res) => {
   const { login, password } = req.body;
@@ -42,7 +51,7 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ error: "invalid_credentials", message: "Login yoki parol noto'g'ri" });
   }
   (req as any).session.isPlatformAdmin = true;
-  await logAction(PLATFORM_LOGIN, "login");
+  logAction(PLATFORM_LOGIN, "login").catch(() => {});
   return res.json({ success: true, login: PLATFORM_LOGIN });
 });
 
@@ -140,7 +149,7 @@ router.post("/companies", requirePlatformAuth, async (req, res) => {
       });
     }
 
-    await logAction(PLATFORM_LOGIN, "create_company", "company", company.id, { name });
+    logAction(PLATFORM_LOGIN, "create_company", "company", company.id, { name }).catch(() => {});
     return res.json({ success: true, company });
   } catch (err) { console.error(err); return res.status(500).json({ error: "server_error" }); }
 });
@@ -240,7 +249,7 @@ router.patch("/companies/:id/plan", requirePlatformAuth, async (req, res) => {
     const valid = ["free", "starter", "business", "enterprise"];
     if (!valid.includes(plan)) return res.status(400).json({ error: "invalid_plan" });
     await db.update(companiesTable).set({ subscriptionPlan: plan }).where(eq(companiesTable.id, id));
-    await logAction(PLATFORM_LOGIN, "change_plan", "company", id, { plan });
+    logAction(PLATFORM_LOGIN, "change_plan", "company", id, { plan }).catch(() => {});
     return res.json({ success: true });
   } catch (err) { return res.status(500).json({ error: "server_error" }); }
 });
@@ -252,7 +261,7 @@ router.patch("/companies/:id/status", requirePlatformAuth, async (req, res) => {
     const valid = ["active", "suspended", "blocked"];
     if (!valid.includes(status)) return res.status(400).json({ error: "invalid_status" });
     await db.execute(sql`UPDATE companies SET status = ${status} WHERE id = ${id}`);
-    await logAction(PLATFORM_LOGIN, `set_status_${status}`, "company", id);
+    logAction(PLATFORM_LOGIN, `set_status_${status}`, "company", id).catch(() => {});
     return res.json({ success: true });
   } catch (err) { return res.status(500).json({ error: "server_error" }); }
 });
@@ -276,7 +285,7 @@ router.post("/companies/:id/reset-password", requirePlatformAuth, async (req, re
       ? and(eq(adminsTable.id, adminId), eq(adminsTable.companyId, id))
       : and(eq(adminsTable.companyId, id), eq(adminsTable.role, "admin"));
     await db.update(adminsTable).set({ password: hash }).where(whereClause);
-    await logAction(PLATFORM_LOGIN, "reset_password", "company", id, { adminId });
+    logAction(PLATFORM_LOGIN, "reset_password", "company", id, { adminId }).catch(() => {});
     return res.json({ success: true, message: "Parol yangilandi" });
   } catch (err) { console.error(err); return res.status(500).json({ error: "server_error" }); }
 });
@@ -299,7 +308,7 @@ router.patch("/companies/:id/integrations/:type", requirePlatformAuth, async (re
         connected_at = CASE WHEN ${enabled} THEN NOW() ELSE company_integrations.connected_at END,
         updated_at = NOW()
     `);
-    await logAction(PLATFORM_LOGIN, `integration_${enabled ? "on" : "off"}_${type}`, "company", id);
+    logAction(PLATFORM_LOGIN, `integration_${enabled ? "on" : "off"}_${type}`, "company", id).catch(() => {});
     return res.json({ success: true });
   } catch (err) { console.error(err); return res.status(500).json({ error: "server_error" }); }
 });
@@ -315,7 +324,7 @@ router.delete("/companies/:id", requirePlatformAuth, async (req, res) => {
     await db.delete(adminsTable).where(eq(adminsTable.companyId, id));
     await db.delete(companiesTable).where(eq(companiesTable.id, id));
     await db.execute(sql`DELETE FROM company_integrations WHERE company_id = ${id}`);
-    await logAction(PLATFORM_LOGIN, "delete_company", "company", id);
+    logAction(PLATFORM_LOGIN, "delete_company", "company", id).catch(() => {});
     return res.json({ success: true });
   } catch (err) { console.error(err); return res.status(500).json({ error: "server_error" }); }
 });
@@ -329,7 +338,7 @@ router.post("/broadcast", requirePlatformAuth, async (req, res) => {
       INSERT INTO platform_announcements (title, message, target, target_company_id)
       VALUES (${title}, ${message}, ${targetCompanyId ? "company" : "all"}, ${targetCompanyId || null})
     `);
-    await logAction(PLATFORM_LOGIN, "broadcast", "announcement", undefined, { title, targetCompanyId });
+    logAction(PLATFORM_LOGIN, "broadcast", "announcement", undefined, { title, targetCompanyId }).catch(() => {});
     return res.json({ success: true });
   } catch (err) { return res.status(500).json({ error: "server_error" }); }
 });
@@ -581,5 +590,127 @@ function buildRecommendations(cpu: number, mem: number, heap: number, disk: numb
   else recs.push({ level: "ok", text: "Ma'lumotlar bazasi tez ishlayapti" });
   return recs;
 }
+
+// ── AI SETTINGS ───────────────────────────────────────────────────────────────
+const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> =>
+  Promise.race([promise, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
+
+router.get("/ai-settings", requirePlatformAuth, async (req, res) => {
+  try {
+    const rows = await withTimeout(
+      execRows(sql`SELECT id, provider, model, enabled, settings, notes, api_key_hint, created_at, updated_at FROM platform_ai_settings ORDER BY created_at DESC`).catch(() => []),
+      6000, []
+    );
+    const access = await withTimeout(
+      execRows(sql`SELECT ca.*, c.name as company_name FROM company_ai_access ca JOIN companies c ON c.id = ca.company_id ORDER BY c.name`).catch(() => []),
+      6000, []
+    );
+    return res.json({ providers: rows, companyAccess: access });
+  } catch (err) { console.error(err); return res.status(500).json({ error: "server_error" }); }
+});
+
+router.post("/ai-settings", requirePlatformAuth, async (req, res) => {
+  try {
+    const { provider, apiKey, model, enabled, notes } = req.body;
+    if (!provider) return res.status(400).json({ error: "provider_required" });
+    const hint = apiKey ? apiKey.substring(0, 8) + "•••••••••••••••" : null;
+    await db.execute(sql`
+      INSERT INTO platform_ai_settings (provider, api_key, api_key_hint, model, enabled, notes)
+      VALUES (${provider}, ${apiKey || null}, ${hint}, ${model || null}, ${!!enabled}, ${notes || null})
+    `);
+    logAction(PLATFORM_LOGIN, "ai_settings_add", "ai", undefined, { provider }).catch(() => {});
+    return res.json({ success: true });
+  } catch (err) { console.error(err); return res.status(500).json({ error: "server_error" }); }
+});
+
+router.patch("/ai-settings/:id", requirePlatformAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { provider, apiKey, model, enabled, notes } = req.body;
+    if (apiKey) {
+      const hint = apiKey.substring(0, 8) + "•••••••••••••••";
+      await db.execute(sql`UPDATE platform_ai_settings SET provider=${provider||sql`provider`}, api_key=${apiKey}, api_key_hint=${hint}, model=${model||sql`model`}, enabled=${!!enabled}, notes=${notes||sql`notes`}, updated_at=NOW() WHERE id=${id}`);
+    } else {
+      await db.execute(sql`UPDATE platform_ai_settings SET provider=${provider||sql`provider`}, model=${model||sql`model`}, enabled=${!!enabled}, notes=${notes||sql`notes`}, updated_at=NOW() WHERE id=${id}`);
+    }
+    return res.json({ success: true });
+  } catch (err) { console.error(err); return res.status(500).json({ error: "server_error" }); }
+});
+
+router.patch("/ai-settings/:id/toggle", requirePlatformAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await db.execute(sql`UPDATE platform_ai_settings SET enabled = NOT enabled, updated_at = NOW() WHERE id = ${id}`);
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ error: "server_error" }); }
+});
+
+router.delete("/ai-settings/:id", requirePlatformAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await db.execute(sql`DELETE FROM platform_ai_settings WHERE id = ${id}`);
+    logAction(PLATFORM_LOGIN, "ai_settings_delete", "ai", id).catch(() => {});
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ error: "server_error" }); }
+});
+
+router.patch("/ai-access/:companyId", requirePlatformAuth, async (req, res) => {
+  try {
+    const companyId = parseInt(req.params.companyId);
+    const { enabled, monthlyLimit } = req.body;
+    await db.execute(sql`
+      INSERT INTO company_ai_access (company_id, enabled, monthly_limit)
+      VALUES (${companyId}, ${!!enabled}, ${monthlyLimit || 500})
+      ON CONFLICT (company_id) DO UPDATE SET enabled = ${!!enabled}, monthly_limit = ${monthlyLimit || 500}
+    `);
+    logAction(PLATFORM_LOGIN, `ai_access_${enabled ? "on" : "off"}`, "company", companyId).catch(() => {});
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ error: "server_error" }); }
+});
+
+router.post("/ai-test", requirePlatformAuth, async (req, res) => {
+  try {
+    const { settingsId } = req.body;
+    const rows = await execRows(sql`SELECT * FROM platform_ai_settings WHERE id = ${settingsId}`);
+    if (!rows[0]) return res.status(404).json({ error: "not_found" });
+    const setting = rows[0];
+    if (!setting.api_key) return res.status(400).json({ error: "no_api_key", message: "API kalit topilmadi" });
+
+    const startMs = Date.now();
+    try {
+      let testResult = "";
+      if (setting.provider === "openai") {
+        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${setting.api_key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: setting.model || "gpt-4o-mini", messages: [{ role: "user", content: "Say 'API test OK' in Uzbek" }], max_tokens: 20 }),
+        });
+        const data = await resp.json() as any;
+        testResult = data.choices?.[0]?.message?.content || JSON.stringify(data);
+      } else if (setting.provider === "anthropic") {
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": setting.api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+          body: JSON.stringify({ model: setting.model || "claude-3-haiku-20240307", max_tokens: 20, messages: [{ role: "user", content: "Say 'API test OK' in Uzbek" }] }),
+        });
+        const data = await resp.json() as any;
+        testResult = data.content?.[0]?.text || JSON.stringify(data);
+      } else if (setting.provider === "gemini") {
+        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${setting.model || "gemini-1.5-flash"}:generateContent?key=${setting.api_key}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: "Say 'API test OK' in Uzbek" }] }] }),
+        });
+        const data = await resp.json() as any;
+        testResult = data.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(data);
+      } else {
+        testResult = `${setting.provider} uchun test amalga oshirilmadi`;
+      }
+      return res.json({ success: true, result: testResult, latencyMs: Date.now() - startMs });
+    } catch (apiErr: any) {
+      return res.json({ success: false, error: apiErr.message, latencyMs: Date.now() - startMs });
+    }
+  } catch (err) { return res.status(500).json({ error: "server_error" }); }
+});
 
 export default router;

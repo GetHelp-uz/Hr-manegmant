@@ -13,7 +13,7 @@ import {
   Server, Activity, Database, Cpu, RefreshCw, Trash2, Settings, HardDrive,
   TrendingUp, Clock, Globe, Phone, Mail, UserCheck, Plus, X, Lock,
   ToggleLeft, ToggleRight, Megaphone, ClipboardList, Eye, AlertCircle,
-  CheckCircle, Ban, BarChart3, FileText, Send, History,
+  CheckCircle, Ban, BarChart3, FileText, Send, History, Brain,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -546,6 +546,12 @@ export default function PlatformAdminDashboard() {
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline text-xs">Korxona</span>
           </Button>
+          <Link href="/platform-admin/ai-settings">
+            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 gap-2 rounded-xl h-8 px-3">
+              <Brain className="w-4 h-4" />
+              <span className="hidden sm:inline text-xs">AI</span>
+            </Button>
+          </Link>
           <Link href="/platform-admin/system">
             <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white hover:bg-slate-800 gap-2 rounded-xl h-8 px-3">
               <Server className="w-4 h-4" />

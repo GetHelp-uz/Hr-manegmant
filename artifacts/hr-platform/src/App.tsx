@@ -28,6 +28,7 @@ import PlatformAdminLogin from "@/pages/platform-admin/login";
 import PlatformAdminDashboard from "@/pages/platform-admin/dashboard";
 import PlatformAdminCompany from "@/pages/platform-admin/company";
 import PlatformAdminSystem from "@/pages/platform-admin/system";
+import PlatformAdminAiSettings from "@/pages/platform-admin/ai-settings";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ function Router() {
       <Route path="/platform-admin/dashboard" component={PlatformAdminDashboard} />
       <Route path="/platform-admin/companies/:id" component={PlatformAdminCompany} />
       <Route path="/platform-admin/system" component={PlatformAdminSystem} />
+      <Route path="/platform-admin/ai-settings" component={PlatformAdminAiSettings} />
       <Route component={NotFound} />
     </Switch>
   );

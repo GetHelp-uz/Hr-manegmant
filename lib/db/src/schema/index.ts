@@ -10,3 +10,4 @@ export * from "./holidays";
 export * from "./audit_log";
 export * from "./advance_requests";
 export * from "./relations";
+export * from "./platform_admin";
