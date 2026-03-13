@@ -22,7 +22,7 @@ export function Sidebar() {
   const { data: company } = useGetMyCompany({ query: { retry: false } });
 
   const navigation = [
-    { name: t('dashboard'), href: "/", icon: LayoutDashboard },
+    { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard },
     { name: t('employees'), href: "/employees", icon: Users },
     { name: t('attendance'), href: "/attendance", icon: CalendarCheck },
     { name: t('qr_scanner'), href: "/scanner", icon: ScanLine },

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, attendanceTable, employeesTable } from "@workspace/db";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { sendTelegramMessage } from "../lib/telegram-bot";
 
 const router: IRouter = Router();
 
@@ -51,6 +52,14 @@ router.post("/scan", async (req, res) => {
         deviceId: deviceId || null,
       }).returning();
 
+      if (employee.telegramId) {
+        const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+        await sendTelegramMessage(
+          employee.telegramId,
+          `✅ <b>Ishga keldingiz!</b>\n\n👤 ${employee.fullName}\n🕐 Kelish vaqti: <b>${formatTime(now)}</b>\n📅 Sana: ${date}`
+        ).catch(() => {});
+      }
+
       return res.json({
         action: "check_in",
         employee: formatEmployee(employee),
@@ -68,6 +77,14 @@ router.post("/scan", async (req, res) => {
         })
         .where(eq(attendanceTable.id, todayRecord.id))
         .returning();
+
+      if (employee.telegramId) {
+        const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+        await sendTelegramMessage(
+          employee.telegramId,
+          `🏁 <b>Ish yakunlandi!</b>\n\n👤 ${employee.fullName}\n🕐 Ketish vaqti: <b>${formatTime(now)}</b>\n⏱ Ishlagan vaqt: <b>${workHours.toFixed(1)} soat</b>\n📅 Sana: ${date}`
+        ).catch(() => {});
+      }
 
       return res.json({
         action: "check_out",

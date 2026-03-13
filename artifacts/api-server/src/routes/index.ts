@@ -7,6 +7,7 @@ import attendanceRouter from "./attendance";
 import devicesRouter from "./devices";
 import payrollRouter from "./payroll";
 import reportsRouter from "./reports";
+import telegramRouter from "./telegram";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use("/attendance", attendanceRouter);
 router.use("/devices", devicesRouter);
 router.use("/payroll", payrollRouter);
 router.use("/reports", reportsRouter);
+router.use("/telegram", telegramRouter);
 
 export default router;

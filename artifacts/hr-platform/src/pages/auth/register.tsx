@@ -26,8 +26,8 @@ export default function Register() {
   const registerMutation = useRegister({
     mutation: {
       onSuccess: () => {
-        toast({ title: "Success", description: "Account created successfully" });
-        setLocation("/");
+        toast({ title: "Muvaffaqiyatli", description: "Hisob muvaffaqiyatli yaratildi" });
+        setLocation("/dashboard");
       },
       onError: (err: any) => {
         toast({

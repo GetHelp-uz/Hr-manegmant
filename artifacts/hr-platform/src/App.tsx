@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 
+import Landing from "@/pages/landing/index";
 import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
 import Dashboard from "@/pages/dashboard/index";
@@ -20,11 +21,10 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
+      <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      
-      {/* Authenticated Routes wrapped in AppLayout within the components themselves */}
-      <Route path="/" component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/employees" component={Employees} />
       <Route path="/scanner" component={Scanner} />
       <Route path="/attendance" component={Attendance} />
@@ -32,7 +32,6 @@ function Router() {
       <Route path="/payroll" component={Payroll} />
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />
-      
       <Route component={NotFound} />
     </Switch>
   );
