@@ -21,22 +21,20 @@ import {
   Tablet,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, type Language } from "@/lib/i18n";
 import { useGetMyCompany } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Administrator",
-  accountant: "Buxgalter",
-  observer: "Nazoratchi",
-  hr: "HR Xodim",
-  viewer: "Ko'ruvchi",
+const LANG_FLAGS: Record<Language, string> = {
+  uz: '🇺🇿',
+  ru: '🇷🇺',
+  en: '🇬🇧',
 };
 
 export function Sidebar() {
   const [location] = useLocation();
-  const { language, sidebarOpen, toggleSidebar, userRole } = useAppStore();
+  const { language, setLanguage, sidebarOpen, toggleSidebar, userRole } = useAppStore();
   const t = useTranslation(language);
   const { data: company } = useGetMyCompany({ query: { retry: false } });
 
@@ -56,36 +54,44 @@ export function Sidebar() {
   });
   const pendingAdvances = (advancesData as any[] | undefined)?.length || 0;
 
+  const roleLabel = {
+    admin: t('role_admin'),
+    accountant: t('role_accountant'),
+    viewer: t('role_viewer'),
+    observer: t('role_observer'),
+    hr: t('role_hr'),
+  }[userRole || ''] || t('group_system');
+
   const allNav = [
-    { group: "Asosiy", items: [
+    { groupKey: 'group_main', items: [
       { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
       { name: t('employees'), href: "/employees", icon: Users, roles: ["admin", "hr"] },
-      { name: "Bo'limlar", href: "/departments", icon: Building2, roles: ["admin"] },
+      { name: t('departments'), href: "/departments", icon: Building2, roles: ["admin"] },
     ]},
-    { group: "Davomat", items: [
+    { groupKey: 'group_attendance', items: [
       { name: t('attendance'), href: "/attendance", icon: CalendarCheck, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
-      { name: "Nazorat Monitor", href: "/monitor", icon: MonitorPlay, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
+      { name: t('monitor'), href: "/monitor", icon: MonitorPlay, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
       { name: t('qr_scanner'), href: "/scanner", icon: ScanLine, roles: ["admin", "hr"] },
-      { name: "Kiosk Rejimi", href: "/kiosk", icon: Tablet, roles: ["admin"] },
+      { name: t('kiosk'), href: "/kiosk", icon: Tablet, roles: ["admin"] },
       { name: t('devices'), href: "/devices", icon: MonitorSmartphone, roles: ["admin"] },
     ]},
-    { group: "So'rovlar", items: [
-      { name: "Ta'til So'rovlar", href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined, roles: ["admin"] },
-      { name: "Avans So'rovlar", href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined, roles: ["admin"] },
+    { groupKey: 'group_requests', items: [
+      { name: t('leave_requests'), href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined, roles: ["admin"] },
+      { name: t('advance_requests'), href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined, roles: ["admin"] },
     ]},
-    { group: "Moliya", items: [
+    { groupKey: 'group_finance', items: [
       { name: t('payroll'), href: "/payroll", icon: Banknote, roles: ["admin", "accountant"] },
       { name: t('reports'), href: "/reports", icon: FileBarChart, roles: ["admin", "accountant", "viewer"] },
-      { name: "Eksport", href: "/export", icon: Download, roles: ["admin", "accountant"] },
+      { name: t('export'), href: "/export", icon: Download, roles: ["admin", "accountant"] },
     ]},
-    { group: "Tahlil", items: [
-      { name: "AI Tahlil", href: "/analytics", icon: Brain, roles: ["admin", "accountant", "observer"] },
+    { groupKey: 'group_analytics', items: [
+      { name: t('ai_analytics'), href: "/analytics", icon: Brain, roles: ["admin", "accountant", "observer"] },
     ]},
-    { group: "Xabarlar", items: [
-      { name: "Ommaviy Xabar", href: "/broadcasting", icon: Radio, roles: ["admin"] },
+    { groupKey: 'group_messages', items: [
+      { name: t('broadcasting'), href: "/broadcasting", icon: Radio, roles: ["admin"] },
     ]},
-    { group: "Tizim", items: [
-      { name: "Foydalanuvchilar", href: "/staff", icon: UserCog, roles: ["admin"] },
+    { groupKey: 'group_system', items: [
+      { name: t('staff'), href: "/staff", icon: UserCog, roles: ["admin"] },
       { name: t('settings'), href: "/settings", icon: Settings, roles: ["admin"] },
     ]},
   ];
@@ -93,6 +99,8 @@ export function Sidebar() {
   const filteredGroups = allNav
     .map(g => ({ ...g, items: g.items.filter(i => !userRole || i.roles.includes(userRole)) }))
     .filter(g => g.items.length > 0);
+
+  const langs: Language[] = ['uz', 'ru', 'en'];
 
   return (
     <div className={`
@@ -114,7 +122,7 @@ export function Sidebar() {
                 {company?.name || 'HR Platform'}
               </p>
               <p className="text-[11px] text-sidebar-foreground/40 truncate">
-                {ROLE_LABELS[userRole || ""] || "Tizim"}
+                {roleLabel}
               </p>
             </div>
           </div>
@@ -136,10 +144,10 @@ export function Sidebar() {
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto py-4 space-y-5 px-3">
         {filteredGroups.map((group) => (
-          <div key={group.group}>
+          <div key={group.groupKey}>
             {sidebarOpen && (
               <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-2 mb-1.5">
-                {group.group}
+                {t(group.groupKey)}
               </p>
             )}
             <div className="space-y-0.5">
@@ -179,10 +187,33 @@ export function Sidebar() {
         ))}
       </div>
 
+      {/* Language switcher */}
+      <div className={`px-3 py-2 border-t border-sidebar-border ${sidebarOpen ? 'flex items-center gap-1' : 'flex flex-col items-center gap-1'}`}>
+        {sidebarOpen && (
+          <span className="text-[10px] text-sidebar-foreground/30 uppercase tracking-widest mr-1">{t('language')}:</span>
+        )}
+        {langs.map((lang) => (
+          <button
+            key={lang}
+            onClick={() => setLanguage(lang)}
+            title={lang.toUpperCase()}
+            className={`
+              text-base leading-none rounded px-1 py-0.5 transition-all
+              ${language === lang
+                ? 'opacity-100 ring-1 ring-primary bg-primary/10'
+                : 'opacity-40 hover:opacity-70'
+              }
+            `}
+          >
+            {LANG_FLAGS[lang]}
+          </button>
+        ))}
+      </div>
+
       {/* Footer */}
-      <div className={`px-4 py-3 border-t border-sidebar-border flex items-center gap-2 ${!sidebarOpen && 'justify-center'}`}>
+      <div className={`px-4 py-2.5 border-t border-sidebar-border flex items-center gap-2 ${!sidebarOpen && 'justify-center'}`}>
         <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)] animate-pulse flex-shrink-0" />
-        {sidebarOpen && <span className="text-[11px] text-sidebar-foreground/35">Tizim ishlayapti</span>}
+        {sidebarOpen && <span className="text-[11px] text-sidebar-foreground/35">{t('system_running')}</span>}
       </div>
     </div>
   );
