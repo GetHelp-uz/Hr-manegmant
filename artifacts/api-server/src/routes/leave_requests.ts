@@ -9,17 +9,20 @@ const router: IRouter = Router();
 router.get("/", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
-    const requests = await db.query.leaveRequestsTable.findMany({
-      where: eq(leaveRequestsTable.companyId, companyId),
-      orderBy: (r, { desc }) => [desc(r.createdAt)],
-    });
+
+    const requests = await db
+      .select()
+      .from(leaveRequestsTable)
+      .where(eq(leaveRequestsTable.companyId, companyId))
+      .orderBy(desc(leaveRequestsTable.createdAt));
 
     const withEmployee = await Promise.all(
       requests.map(async (r) => {
-        const emp = await db.query.employeesTable.findFirst({
-          where: eq(employeesTable.id, r.employeeId),
-        });
-        return { ...r, employee: emp };
+        const [emp] = await db
+          .select()
+          .from(employeesTable)
+          .where(eq(employeesTable.id, r.employeeId));
+        return { ...r, employee: emp || null };
       })
     );
 
@@ -49,9 +52,10 @@ router.put("/:id/status", requireAuth, async (req, res) => {
       .where(and(eq(leaveRequestsTable.id, reqId), eq(leaveRequestsTable.companyId, companyId)))
       .returning();
 
-    const employee = await db.query.employeesTable.findFirst({
-      where: eq(employeesTable.id, updated.employeeId),
-    });
+    const [employee] = await db
+      .select()
+      .from(employeesTable)
+      .where(eq(employeesTable.id, updated.employeeId));
 
     if (employee?.telegramId) {
       const typeNames: Record<string, string> = { vacation: "Ta'til", sick: "Kasallik", other: "Boshqa" };
@@ -59,8 +63,8 @@ router.put("/:id/status", requireAuth, async (req, res) => {
       const statusText = status === "approved" ? "✅ Tasdiqlandi" : "❌ Rad etildi";
       await sendTelegramMessage(
         employee.telegramId,
-        `${statusText}\n\n📋 So'rov turi: ${typeName}\n📅 ${updated.startDate} dan ${updated.endDate} gacha\n` +
-        (adminNote ? `📝 Admin izohi: ${adminNote}` : "")
+        `${statusText}\n\n📋 So'rov turi: ${typeName}\n📅 ${updated.startDate} dan ${updated.endDate} gacha` +
+        (adminNote ? `\n📝 Admin izohi: ${adminNote}` : "")
       ).catch(() => {});
     }
 
@@ -75,9 +79,11 @@ router.post("/telegram", async (req, res) => {
   try {
     const { employeeId, type, startDate, endDate, days, reason } = req.body;
 
-    const employee = await db.query.employeesTable.findFirst({
-      where: eq(employeesTable.id, employeeId),
-    });
+    const [employee] = await db
+      .select()
+      .from(employeesTable)
+      .where(eq(employeesTable.id, employeeId));
+
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
     const [request] = await db.insert(leaveRequestsTable).values({
@@ -87,24 +93,20 @@ router.post("/telegram", async (req, res) => {
       startDate,
       endDate,
       days,
-      reason,
+      reason: reason || null,
       status: "pending",
     }).returning();
 
-    const company = await db.query.companiesTable.findFirst({
-      where: eq(companiesTable.id, employee.companyId),
-    });
+    const [company] = await db
+      .select()
+      .from(companiesTable)
+      .where(eq(companiesTable.id, employee.companyId));
 
     if (company?.telegramAdminId) {
       const typeNames: Record<string, string> = { vacation: "Ta'til", sick: "Kasallik", other: "Boshqa" };
       await sendTelegramMessage(
         company.telegramAdminId,
-        `🔔 <b>Yangi so'rov!</b>\n\n` +
-        `👤 ${employee.fullName}\n` +
-        `📋 Tur: ${typeNames[type] || type}\n` +
-        `📅 ${startDate} dan ${endDate} gacha (${days} kun)\n` +
-        `📝 Sabab: ${reason || "Ko'rsatilmagan"}\n\n` +
-        `Dashboard orqali tasdiqlang yoki rad eting.`
+        `🔔 <b>Yangi so'rov!</b>\n\n👤 ${employee.fullName}\n📋 Tur: ${typeNames[type] || type}\n📅 ${startDate} dan ${endDate} gacha (${days} kun)\n📝 Sabab: ${reason || "Ko'rsatilmagan"}\n\nDashboard orqali tasdiqlang yoki rad eting.`
       ).catch(() => {});
     }
 

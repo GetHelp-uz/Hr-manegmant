@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, departmentsTable, employeesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -8,20 +8,20 @@ const router: IRouter = Router();
 router.get("/", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
-    const departments = await db.query.departmentsTable.findMany({
-      where: eq(departmentsTable.companyId, companyId),
-      orderBy: (d, { asc }) => [asc(d.name)],
-    });
+
+    const departments = await db
+      .select()
+      .from(departmentsTable)
+      .where(eq(departmentsTable.companyId, companyId))
+      .orderBy(departmentsTable.name);
 
     const result = await Promise.all(
       departments.map(async (dept) => {
-        const employees = await db.query.employeesTable.findMany({
-          where: and(
-            eq(employeesTable.companyId, companyId),
-            eq(employeesTable.departmentId, dept.id)
-          ),
-        });
-        return { ...dept, employeeCount: employees.length };
+        const [{ count }] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(employeesTable)
+          .where(and(eq(employeesTable.companyId, companyId), eq(employeesTable.departmentId, dept.id)));
+        return { ...dept, employeeCount: count };
       })
     );
 
@@ -41,13 +41,13 @@ router.post("/", requireAuth, async (req, res) => {
     const [dept] = await db.insert(departmentsTable).values({
       companyId,
       name,
-      description,
+      description: description || null,
       baseSalaryType: baseSalaryType || "monthly",
-      baseMonthlySalary: baseMonthlySalary || null,
-      baseHourlyRate: baseHourlyRate || null,
+      baseMonthlySalary: baseMonthlySalary ? baseMonthlySalary.toString() : null,
+      baseHourlyRate: baseHourlyRate ? baseHourlyRate.toString() : null,
     }).returning();
 
-    return res.json(dept);
+    return res.json({ ...dept, employeeCount: 0 });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -61,7 +61,13 @@ router.put("/:id", requireAuth, async (req, res) => {
     const { name, description, baseSalaryType, baseMonthlySalary, baseHourlyRate } = req.body;
 
     const [updated] = await db.update(departmentsTable)
-      .set({ name, description, baseSalaryType, baseMonthlySalary, baseHourlyRate })
+      .set({
+        name,
+        description: description || null,
+        baseSalaryType,
+        baseMonthlySalary: baseMonthlySalary ? baseMonthlySalary.toString() : null,
+        baseHourlyRate: baseHourlyRate ? baseHourlyRate.toString() : null,
+      })
       .where(and(eq(departmentsTable.id, deptId), eq(departmentsTable.companyId, companyId)))
       .returning();
 
@@ -77,9 +83,11 @@ router.post("/:id/apply-salary", requireAuth, async (req, res) => {
     const companyId = (req.session as any).companyId;
     const deptId = parseInt(req.params.id);
 
-    const dept = await db.query.departmentsTable.findFirst({
-      where: and(eq(departmentsTable.id, deptId), eq(departmentsTable.companyId, companyId)),
-    });
+    const [dept] = await db
+      .select()
+      .from(departmentsTable)
+      .where(and(eq(departmentsTable.id, deptId), eq(departmentsTable.companyId, companyId)));
+
     if (!dept) return res.status(404).json({ error: "Department not found" });
 
     const updateData: any = { salaryType: dept.baseSalaryType };
@@ -95,11 +103,12 @@ router.post("/:id/apply-salary", requireAuth, async (req, res) => {
       .set(updateData)
       .where(and(eq(employeesTable.companyId, companyId), eq(employeesTable.departmentId, deptId)));
 
-    const employees = await db.query.employeesTable.findMany({
-      where: and(eq(employeesTable.companyId, companyId), eq(employeesTable.departmentId, deptId)),
-    });
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(employeesTable)
+      .where(and(eq(employeesTable.companyId, companyId), eq(employeesTable.departmentId, deptId)));
 
-    return res.json({ updated: employees.length, department: dept });
+    return res.json({ updated: count, department: dept });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });

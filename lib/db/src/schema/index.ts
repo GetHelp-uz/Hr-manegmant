@@ -8,3 +8,4 @@ export * from "./payroll";
 export * from "./leave_requests";
 export * from "./holidays";
 export * from "./audit_log";
+export * from "./relations";

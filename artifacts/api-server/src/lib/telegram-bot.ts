@@ -1,6 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 let bot: TelegramBot | null = null;
 
@@ -313,11 +313,12 @@ async function handleSorov(bot: TelegramBot, chatId: string) {
     return;
   }
 
-  const requests = await db.query.leaveRequestsTable.findMany({
-    where: eq(leaveRequestsTable.employeeId, emp.id),
-    orderBy: (r, { desc }) => [desc(r.createdAt)],
-    limit: 5,
-  });
+  const requests = await db
+    .select()
+    .from(leaveRequestsTable)
+    .where(eq(leaveRequestsTable.employeeId, emp.id))
+    .orderBy(desc(leaveRequestsTable.createdAt))
+    .limit(5);
 
   if (!requests.length) {
     await bot.sendMessage(chatId, `📋 So'rovlar mavjud emas.`, mainMenu() as any);

@@ -10,11 +10,8 @@ const router: IRouter = Router();
 router.get("/", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
-    const company = await db.query.companiesTable.findFirst({
-      where: eq(companiesTable.id, companyId),
-    });
+    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId));
     if (!company) return res.status(404).json({ error: "Company not found" });
-
     const { password, ...safe } = company;
     return res.json(safe);
   } catch (err) {
@@ -26,10 +23,10 @@ router.get("/", requireAuth, async (req, res) => {
 router.put("/", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
-    const { workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId } = req.body;
+    const { name, workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId } = req.body;
 
     const [updated] = await db.update(companiesTable)
-      .set({ workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId })
+      .set({ name, workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId })
       .where(eq(companiesTable.id, companyId))
       .returning();
 
@@ -44,9 +41,7 @@ router.put("/", requireAuth, async (req, res) => {
 router.get("/qr-code", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
-    const company = await db.query.companiesTable.findFirst({
-      where: eq(companiesTable.id, companyId),
-    });
+    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId));
     if (!company) return res.status(404).json({ error: "Company not found" });
 
     let joinCode = company.joinCode;
@@ -71,7 +66,12 @@ router.post("/regenerate-code", requireAuth, async (req, res) => {
     const companyId = (req.session as any).companyId;
     const joinCode = randomBytes(4).toString("hex").toUpperCase();
     await db.update(companiesTable).set({ joinCode }).where(eq(companiesTable.id, companyId));
-    return res.json({ joinCode });
+
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || "hr_workforce_bot";
+    const deepLink = `https://t.me/${botUsername}?start=${joinCode}`;
+    const qrDataUrl = await QRCode.toDataURL(deepLink, { width: 400, margin: 2 });
+
+    return res.json({ joinCode, deepLink, qrCode: qrDataUrl });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });

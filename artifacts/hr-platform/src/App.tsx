@@ -9,6 +9,7 @@ import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
 import Dashboard from "@/pages/dashboard/index";
 import Employees from "@/pages/employees/index";
+import PrintQR from "@/pages/employees/print-qr";
 import Scanner from "@/pages/scanner/index";
 import Attendance from "@/pages/attendance/index";
 import Devices from "@/pages/devices/index";
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/employees/print-qr" component={PrintQR} />
       <Route path="/employees" component={Employees} />
       <Route path="/departments" component={Departments} />
       <Route path="/leave-requests" component={LeaveRequests} />
