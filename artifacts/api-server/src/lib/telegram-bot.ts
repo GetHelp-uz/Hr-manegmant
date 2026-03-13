@@ -489,27 +489,52 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
   }
 }
 
+function parseDate(text: string): string | null {
+  let str = text.trim();
+  // DD.MM.YYYY → YYYY-MM-DD
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(str)) {
+    const [d, m, y] = str.split(".");
+    str = `${y}-${m}-${d}`;
+  }
+  // Must be YYYY-MM-DD format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+  const date = new Date(str);
+  if (isNaN(date.getTime())) return null;
+  // Check month and day are within valid range
+  const [y, m, d] = str.split("-").map(Number);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  // Verify date didn't overflow (e.g. Feb 30 → March 2)
+  if (date.getMonth() + 1 !== m || date.getDate() !== d) return null;
+  return str;
+}
+
 async function handleConversation(bot: TelegramBot, chatId: string, text: string, msg: any) {
   const state = userState[chatId];
 
   if (state.step === "leave_start_date") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(text) && !/^\d{2}\.\d{2}\.\d{4}$/.test(text)) {
-      await bot.sendMessage(chatId, `❌ Noto'g'ri format. Misol: 2025-04-10`, cancelMenu() as any);
+    const dateStr = parseDate(text);
+    if (!dateStr) {
+      await bot.sendMessage(chatId,
+        `❌ Noto'g'ri sana. To'g'ri formatda kiriting:\n<i>Misol: 2026-04-10 yoki 10.04.2026</i>`,
+        { parse_mode: "HTML", ...cancelMenu() as any });
       return;
     }
-    const dateStr = text.includes(".") ? text.split(".").reverse().join("-") : text;
     userState[chatId].step = "leave_end_date";
     userState[chatId].data.startDate = dateStr;
-    await bot.sendMessage(chatId, `📅 Oxirgi sana (YYYY-MM-DD):\n<i>Misol: 2025-04-15</i>`, { parse_mode: "HTML", ...cancelMenu() as any });
+    await bot.sendMessage(chatId,
+      `📅 Oxirgi sana:\n<i>Misol: 2026-04-15 yoki 15.04.2026</i>`,
+      { parse_mode: "HTML", ...cancelMenu() as any });
     return;
   }
 
   if (state.step === "leave_end_date") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(text) && !/^\d{2}\.\d{2}\.\d{4}$/.test(text)) {
-      await bot.sendMessage(chatId, `❌ Noto'g'ri format. Misol: 2025-04-15`, cancelMenu() as any);
+    const dateStr = parseDate(text);
+    if (!dateStr) {
+      await bot.sendMessage(chatId,
+        `❌ Noto'g'ri sana. To'g'ri formatda kiriting:\n<i>Misol: 2026-04-15 yoki 15.04.2026</i>`,
+        { parse_mode: "HTML", ...cancelMenu() as any });
       return;
     }
-    const dateStr = text.includes(".") ? text.split(".").reverse().join("-") : text;
     const start = new Date(userState[chatId].data.startDate);
     const end = new Date(dateStr);
     if (end < start) {
@@ -520,13 +545,26 @@ async function handleConversation(bot: TelegramBot, chatId: string, text: string
     userState[chatId].step = "leave_reason";
     userState[chatId].data.endDate = dateStr;
     userState[chatId].data.days = days;
-    await bot.sendMessage(chatId, `📝 Sabab yozing (yoki /skip bosing):`, { parse_mode: "HTML", ...cancelMenu() as any });
+    await bot.sendMessage(chatId,
+      `✅ Sana: <b>${userState[chatId].data.startDate}</b> — <b>${dateStr}</b> (<b>${days} kun</b>)\n\n📝 Sabab yozing (yoki /skip bosing):`,
+      { parse_mode: "HTML", ...cancelMenu() as any });
     return;
   }
 
   if (state.step === "leave_reason") {
     const reason = text === "/skip" ? null : text;
     const { type, startDate, endDate, days, employeeId, companyId } = state.data;
+
+    // Safety check: validate data integrity before saving
+    if (!startDate || !endDate || !Number.isFinite(days) || days < 1) {
+      delete userState[chatId];
+      await bot.sendMessage(chatId,
+        `❌ Sana ma'lumotlarida xatolik. Iltimos, yana bir bor urinib ko'ring.`,
+        mainMenu() as any
+      );
+      return;
+    }
+
     delete userState[chatId];
 
     try {
