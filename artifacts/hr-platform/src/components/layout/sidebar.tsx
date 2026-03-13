@@ -23,6 +23,7 @@ import {
   User,
   ShieldCheck,
   Plug,
+  ScanEye,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation, type Language } from "@/lib/i18n";
@@ -75,6 +76,7 @@ export function Sidebar() {
     { groupKey: 'group_attendance', items: [
       { name: t('attendance'), href: "/attendance", icon: CalendarCheck, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
       { name: t('monitor'), href: "/monitor", icon: MonitorPlay, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
+      { name: t('cv_monitor'), href: "/cv-monitor", icon: ScanEye, roles: ["admin"] },
       { name: t('qr_scanner'), href: "/scanner", icon: ScanLine, roles: ["admin", "hr"] },
       { name: t('kiosk'), href: "/kiosk", icon: Tablet, roles: ["admin"] },
       { name: t('devices'), href: "/devices", icon: MonitorSmartphone, roles: ["admin"] },

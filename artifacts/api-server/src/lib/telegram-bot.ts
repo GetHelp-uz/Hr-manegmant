@@ -305,7 +305,12 @@ function setupHandlers(bot: TelegramBot) {
       return;
     }
 
-    if (text.startsWith("/start")) {
+    if (text === "/myid" || text === "/id") {
+      await bot.sendMessage(chatId,
+        `🆔 <b>Sizning Telegram ID'ingiz:</b>\n\n<code>${chatId}</code>\n\n📋 Bu ID'ni admin panelning Sozlamalar bo'limidagi <b>"Telegram Admin ID"</b> maydoniga kiriting.`,
+        { parse_mode: "HTML" }
+      );
+    } else if (text.startsWith("/start")) {
       await handleStart(bot, chatId, text, msg);
     } else if (text === "/bugun" || text === "📅 Bugungi davomat") {
       await handleBugun(bot, chatId);

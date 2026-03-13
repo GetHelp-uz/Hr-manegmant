@@ -173,8 +173,16 @@ export default function Settings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-2"><MessageCircle className="w-4 h-4 text-blue-500" /> Admin Telegram ID</Label>
-                  <Input value={workForm.telegramAdminId} onChange={e => setWorkForm(p => ({ ...p, telegramAdminId: e.target.value }))} placeholder="123456789 — botdan /start bosib oling" />
-                  <p className="text-xs text-muted-foreground">Xodimlar ta'til so'rov yuborganida shu Telegram'ga bildirishnoma boradi</p>
+                  <Input value={workForm.telegramAdminId} onChange={e => setWorkForm(p => ({ ...p, telegramAdminId: e.target.value }))} placeholder="Masalan: 123456789" />
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1">
+                    <p className="text-xs font-semibold text-blue-700">📲 Telegram ID qanday olish kerak?</p>
+                    <ol className="text-xs text-blue-600 space-y-0.5 list-decimal list-inside">
+                      <li>Botga kirish: <strong>@HeadRecruiment_bot</strong></li>
+                      <li>Bot'ga <code className="bg-blue-100 px-1 rounded">/myid</code> deb yozing</li>
+                      <li>Bot sizga raqam beradi — shu raqamni bu yerga kiriting</li>
+                    </ol>
+                    <p className="text-xs text-blue-500 mt-1">⚠️ Bu kiritilmasa, xodimlarning ta'til/avans so'rovlari sizga Telegram'ga <b>kelmaydi!</b></p>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">

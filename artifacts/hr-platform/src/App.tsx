@@ -41,6 +41,7 @@ const MePage = lazy(() => import("@/pages/me/index"));
 const AuditLogPage = lazy(() => import("@/pages/audit-log/index"));
 const OnboardingPage = lazy(() => import("@/pages/onboarding/index"));
 const IntegrationsPage = lazy(() => import("@/pages/integrations/index"));
+const CvMonitorPage = lazy(() => import("@/pages/cv-monitor/index"));
 
 const queryClient = new QueryClient();
 
@@ -85,6 +86,7 @@ function Router() {
         <Route path="/me" component={MePage} />
         <Route path="/audit-log" component={AuditLogPage} />
         <Route path="/integrations" component={IntegrationsPage} />
+        <Route path="/cv-monitor" component={CvMonitorPage} />
         <Route path="/platform-admin/login" component={PlatformAdminLogin} />
         <Route path="/platform-admin/dashboard" component={PlatformAdminDashboard} />
         <Route path="/platform-admin/companies/:id" component={PlatformAdminCompany} />
