@@ -277,6 +277,85 @@ router.post("/:id/regenerate-qr", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/face-descriptors", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const employees = await db.select().from(employeesTable).where(
+      and(eq(employeesTable.companyId, companyId), eq(employeesTable.status, "active"))
+    );
+    const withFace = employees
+      .filter((e) => e.faceDescriptor)
+      .map((e) => ({
+        id: e.id,
+        fullName: e.fullName,
+        descriptor: JSON.parse(e.faceDescriptor!),
+      }));
+    return res.json({ data: withFace });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/face-descriptors-public/:companyId", async (req, res) => {
+  try {
+    const companyId = parseInt(req.params.companyId);
+    if (!companyId) return res.status(400).json({ error: "invalid" });
+    const employees = await db.select().from(employeesTable).where(
+      and(eq(employeesTable.companyId, companyId), eq(employeesTable.status, "active"))
+    );
+    const withFace = employees
+      .filter((e) => e.faceDescriptor)
+      .map((e) => ({
+        id: e.id,
+        fullName: e.fullName,
+        descriptor: JSON.parse(e.faceDescriptor!),
+      }));
+    return res.json({ data: withFace });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.post("/:id/enroll-face", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const id = parseInt(req.params.id);
+    const { descriptor } = req.body;
+    if (!descriptor || !Array.isArray(descriptor) || descriptor.length !== 128) {
+      return res.status(400).json({ error: "invalid_descriptor", message: "Yuz tasviri noto'g'ri" });
+    }
+    const [employee] = await db.select().from(employeesTable).where(
+      and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId))
+    );
+    if (!employee) return res.status(404).json({ error: "not_found" });
+
+    await db.update(employeesTable)
+      .set({ faceDescriptor: JSON.stringify(Array.from(descriptor)) })
+      .where(eq(employeesTable.id, id));
+
+    return res.json({ success: true, message: "Yuz muvaffaqiyatli ro'yxatdan o'tkazildi" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.delete("/:id/enroll-face", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const id = parseInt(req.params.id);
+    await db.update(employeesTable)
+      .set({ faceDescriptor: null })
+      .where(and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId)));
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
 function formatEmployee(e: any) {
   return {
     id: e.id,
@@ -288,8 +367,10 @@ function formatEmployee(e: any) {
     hourlyRate: e.hourlyRate ? parseFloat(e.hourlyRate) : null,
     monthlySalary: e.monthlySalary ? parseFloat(e.monthlySalary) : null,
     qrCode: e.qrCode,
+    hasFace: Boolean(e.faceDescriptor),
     telegramId: e.telegramId,
     departmentId: e.departmentId,
+    status: e.status,
     createdAt: e.createdAt,
   };
 }

@@ -23,13 +23,36 @@ router.get("/", requireAuth, async (req, res) => {
 router.put("/", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
-    const { name, workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId } = req.body;
+    const { name, workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId, attendanceMethod } = req.body;
+
+    const updateData: any = { name, workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId };
+    if (attendanceMethod && ["qr", "face", "both"].includes(attendanceMethod)) {
+      updateData.attendanceMethod = attendanceMethod;
+    }
 
     const [updated] = await db.update(companiesTable)
-      .set({ name, workStartTime, workEndTime, lateThresholdMinutes, telegramAdminId })
+      .set(updateData)
       .where(eq(companiesTable.id, companyId))
       .returning();
 
+    const { password, ...safe } = updated;
+    return res.json(safe);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.patch("/attendance-method", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const { attendanceMethod } = req.body;
+    if (!["qr", "face", "both"].includes(attendanceMethod)) {
+      return res.status(400).json({ error: "invalid", message: "qr, face yoki both bo'lishi kerak" });
+    }
+    const [updated] = await db.update(companiesTable)
+      .set({ attendanceMethod })
+      .where(eq(companiesTable.id, companyId)).returning();
     const { password, ...safe } = updated;
     return res.json(safe);
   } catch (err) {

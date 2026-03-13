@@ -17,6 +17,7 @@ export const companiesTable = pgTable("companies", {
   telegramAdminId: varchar("telegram_admin_id", { length: 100 }),
   address: varchar("address", { length: 500 }),
   showSalaryToEmployee: boolean("show_salary_to_employee").default(true),
+  attendanceMethod: varchar("attendance_method", { length: 20 }).default("qr"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
