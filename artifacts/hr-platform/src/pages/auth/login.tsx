@@ -10,8 +10,15 @@ import { Building2, Lock, AtSign, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const PLATFORM_ADMIN_LOGIN = "im_yakuboff98";
-
 const STORAGE_KEY = "hr_saved_credentials";
+
+const FEATURES = [
+  { icon: "📱", title: "QR Davomat", desc: "Selfie + QR orqali avtomatik ro'yxat" },
+  { icon: "🤖", title: "Telegram Bot", desc: "Xodimlar ma'lumotlarini botdan ko'radi" },
+  { icon: "💰", title: "Maosh hisoblash", desc: "Oylik, soatlik, kunlik, ishbay" },
+  { icon: "📊", title: "AI Tahlil", desc: "Aqlli hisobotlar va tavsiyalar" },
+  { icon: "🌐", title: "Ko'p tilli", desc: "O'zbek, Rus tili" },
+];
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -60,7 +67,6 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (loginVal.trim() === PLATFORM_ADMIN_LOGIN) {
       setPlatformLoading(true);
       try {
@@ -77,7 +83,6 @@ export default function Login() {
       }
       return;
     }
-
     loginMutation.mutate({ data: { login: loginVal, password } });
   };
 
@@ -90,29 +95,29 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-background">
+    <div className="min-h-screen w-full flex bg-muted/30">
       {/* Left: Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative z-10">
-        <div className="w-full max-w-md bg-card p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-border/50 space-y-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-md bg-card p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-border/50 space-y-7">
 
           <div className="text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
-              <Building2 className="w-8 h-8 text-primary" />
+            <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/30">
+              <Building2 className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-3xl font-display font-bold tracking-tight">Tizimga kirish</h1>
-            <p className="mt-2 text-muted-foreground text-sm">Login va parolingizni kiriting</p>
+            <h1 className="text-2xl font-display font-bold tracking-tight">Tizimga kirish</h1>
+            <p className="mt-1.5 text-muted-foreground text-sm">Login va parolingizni kiriting</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-semibold">Login yoki Email</Label>
               <div className="relative">
-                <AtSign className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
+                <AtSign className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder="sizning_loginiz"
                   autoComplete="username"
-                  className="pl-10 h-12 rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/20"
+                  className="pl-10 h-11 rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/20"
                   value={loginVal}
                   onChange={(e) => setLoginVal(e.target.value)}
                   required
@@ -123,12 +128,12 @@ export default function Login() {
             <div className="space-y-2">
               <Label className="text-sm font-semibold">Parol</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  className="pl-10 pr-10 h-12 rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/20"
+                  className="pl-10 pr-10 h-11 rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/20"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -136,7 +141,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3.5 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -174,7 +179,7 @@ export default function Login() {
 
             <Button
               type="submit"
-              className="w-full h-12 rounded-xl text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 gap-2"
+              className="w-full h-12 rounded-xl text-base font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 gap-2"
               disabled={loginMutation.isPending || platformLoading}
             >
               {(loginMutation.isPending || platformLoading) ? "Kirilmoqda..." : <>Kirish <ArrowRight className="w-5 h-5" /></>}
@@ -191,29 +196,28 @@ export default function Login() {
       </div>
 
       {/* Right: Branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-sidebar overflow-hidden flex-col items-center justify-center p-14">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/90 to-violet-700" />
-        <div className="relative z-10 text-white max-w-lg w-full">
-          <h2 className="text-4xl font-display font-bold mb-3 text-white">HR Workforce</h2>
-          <p className="text-white/70 text-lg mb-10 leading-relaxed">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col items-center justify-center p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary to-violet-700" />
+        <div className="relative z-10 text-white max-w-sm w-full">
+          <h2 className="text-3xl font-display font-bold mb-2 text-white">HR Workforce</h2>
+          <p className="text-white/60 text-sm mb-8 leading-relaxed">
             O'rta Osiyo uchun yaratilgan zamonaviy HR boshqaruv tizimi
           </p>
           <div className="space-y-3">
-            {[
-              { icon: "📱", title: "QR Davomat", desc: "Selfie + QR orqali avtomatik ro'yxat" },
-              { icon: "🤖", title: "Telegram Bot", desc: "Xodimlar ma'lumotlarini botdan ko'radi" },
-              { icon: "💰", title: "Maosh hisoblash", desc: "Oylik, soatlik, kunlik, ishbay" },
-              { icon: "📊", title: "AI Tahlil", desc: "Aqlli hisobotlar va tavsiyalar" },
-              { icon: "🌐", title: "Ko'p tilli", desc: "O'zbek, Rus tili" },
-            ].map((f, i) => (
-              <div key={i} className="flex items-start gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-3.5">
-                <span className="text-2xl mt-0.5">{f.icon}</span>
+            {FEATURES.map((f, i) => (
+              <div key={i} className="flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-3">
+                <span className="text-xl">{f.icon}</span>
                 <div>
-                  <p className="font-bold text-white">{f.title}</p>
-                  <p className="text-white/60 text-sm">{f.desc}</p>
+                  <p className="font-semibold text-white text-sm">{f.title}</p>
+                  <p className="text-white/60 text-xs">{f.desc}</p>
                 </div>
               </div>
             ))}
+          </div>
+          <div className="mt-6 p-4 bg-white/10 rounded-2xl">
+            <p className="text-xs text-white/50 text-center">
+              🇺🇿 O'zbekiston • 🇰🇿 Qozog'iston • 🇰🇬 Qirg'iziston
+            </p>
           </div>
         </div>
       </div>
