@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -15,6 +15,7 @@ export const companiesTable = pgTable("companies", {
   workEndTime: varchar("work_end_time", { length: 10 }).default("18:00"),
   lateThresholdMinutes: varchar("late_threshold_minutes", { length: 5 }).default("15"),
   telegramAdminId: varchar("telegram_admin_id", { length: 100 }),
+  showSalaryToEmployee: boolean("show_salary_to_employee").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

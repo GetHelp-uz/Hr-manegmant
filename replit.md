@@ -68,8 +68,12 @@ Tables: `companies`, `admins`, `employees`, `devices`, `attendance`, `payroll`
 - `GET /attendance` — List attendance records
 - `GET /attendance/today` — Today's attendance
 - `GET/POST /devices` — List/create scanner devices
-- `GET /payroll` — List payroll records
-- `POST /payroll/calculate` — Calculate payroll for month
+- `GET /payroll` — List payroll records (includes netSalary, bonusAmount, deductions, totalPieces)
+- `POST /payroll/calculate` — Calculate payroll for month (supports daily/piecerate salary types)
+- `PATCH /payroll/:id/pieces` — Update piece count, bonus, deductions for piecerate employees
+- `GET /export/payroll?format=1c|bitrix|uzasbo|excel` — Export payroll in various formats
+- `GET /export/attendance` — Export attendance as CSV
+- `PATCH /settings/salary-visibility` — Toggle salary visibility for employees
 - `GET /reports/attendance-summary` — Monthly attendance report
 
 ## Development

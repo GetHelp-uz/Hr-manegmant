@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Save, QrCode, Clock, RefreshCw, Copy, MessageCircle, Download, Globe } from "lucide-react";
+import { Building2, Save, QrCode, Clock, RefreshCw, Copy, MessageCircle, Download, Globe, Eye, EyeOff } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 
 async function fetchSettings() {
@@ -81,6 +81,18 @@ export default function Settings() {
       toast({ title: "Yangi kod yaratildi" });
       queryClient.invalidateQueries({ queryKey: ["/api/settings/qr-code"] });
     },
+  });
+
+  const salaryVisibilityM = useMutation({
+    mutationFn: async (show: boolean) => {
+      const r = await apiClient.patch("/api/settings/salary-visibility", { showSalaryToEmployee: show });
+      return r.data;
+    },
+    onSuccess: (data) => {
+      toast({ title: data.showSalaryToEmployee ? "Maosh xodimlarga ko'rsatiladi" : "Maosh xodimlardan yashirildi" });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/me"] });
+    },
+    onError: () => toast({ variant: "destructive", title: "Xatolik" }),
   });
 
   function downloadQr() {
@@ -173,6 +185,42 @@ export default function Settings() {
                 </Button>
               </form>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Salary Visibility */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Eye className="w-5 h-5 text-violet-500" /> Maosh ko'rinishi
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border/50">
+              <div>
+                <p className="font-semibold">Xodimlarga o'z maoshini ko'rsatish</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Yoqilsa — xodimlar o'z maosh miqdorini Telegram bot orqali ko'ra oladi.
+                  O'chirilsa — maosh faqat admin va buxgalterlarga ko'rinadi.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 ml-6">
+                {company?.showSalaryToEmployee ? (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium flex items-center gap-1"><Eye className="w-3 h-3" /> Ko'rsatilmoqda</span>
+                ) : (
+                  <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium flex items-center gap-1"><EyeOff className="w-3 h-3" /> Yashirilgan</span>
+                )}
+                <Button
+                  variant={company?.showSalaryToEmployee ? "destructive" : "default"}
+                  size="sm"
+                  className="rounded-xl gap-2"
+                  disabled={salaryVisibilityM.isPending}
+                  onClick={() => salaryVisibilityM.mutate(!company?.showSalaryToEmployee)}
+                >
+                  {company?.showSalaryToEmployee ? <><EyeOff className="w-4 h-4" /> Yashirish</> : <><Eye className="w-4 h-4" /> Ko'rsatish</>}
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

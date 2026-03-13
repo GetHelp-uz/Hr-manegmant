@@ -36,8 +36,10 @@ export default function Employees() {
 
   const [formData, setFormData] = useState({
     fullName: "", phone: "", position: "",
-    salaryType: "monthly" as "hourly" | "monthly",
-    hourlyRate: 0, monthlySalary: 0, telegramId: "", departmentId: ""
+    salaryType: "monthly" as "hourly" | "monthly" | "daily" | "piecerate",
+    hourlyRate: 0, monthlySalary: 0, dailyRate: 0,
+    pieceRate: 0, pieceRatePlan: 0, bonusPercent: 0,
+    telegramId: "", departmentId: ""
   });
 
   const createMutation = useCreateEmployee({
@@ -61,6 +63,10 @@ export default function Employees() {
     const data: any = { ...formData };
     if (!data.departmentId) delete data.departmentId;
     else data.departmentId = parseInt(data.departmentId);
+    if (data.salaryType !== "hourly") { data.hourlyRate = 0; }
+    if (data.salaryType !== "monthly") { data.monthlySalary = 0; }
+    if (data.salaryType !== "daily") { data.dailyRate = 0; }
+    if (data.salaryType !== "piecerate") { data.pieceRate = 0; data.pieceRatePlan = 0; data.bonusPercent = 0; }
     createMutation.mutate({ data });
   };
 
@@ -229,26 +235,52 @@ export default function Employees() {
                 <Label>{t('position')}</Label>
                 <Input required value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} className="rounded-xl" placeholder="Lavozim" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2">
                 <Label>{t('salary_type')}</Label>
                 <Select value={formData.salaryType} onValueChange={(v: any) => setFormData({ ...formData, salaryType: v })}>
                   <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="monthly">{t('monthly')}</SelectItem>
-                    <SelectItem value="hourly">{t('hourly')}</SelectItem>
+                    <SelectItem value="monthly">📅 Oylik maosh</SelectItem>
+                    <SelectItem value="hourly">⏱ Soatlik stavka</SelectItem>
+                    <SelectItem value="daily">☀️ Kunlik stavka</SelectItem>
+                    <SelectItem value="piecerate">🎯 Ishbay (dona bo'yicha)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              {formData.salaryType === 'monthly' ? (
-                <div className="space-y-2">
+              {formData.salaryType === 'monthly' && (
+                <div className="space-y-2 col-span-2">
                   <Label>Oylik maosh (so'm)</Label>
-                  <Input type="number" value={formData.monthlySalary} onChange={e => setFormData({ ...formData, monthlySalary: Number(e.target.value) })} className="rounded-xl" />
+                  <Input type="number" value={formData.monthlySalary} onChange={e => setFormData({ ...formData, monthlySalary: Number(e.target.value) })} className="rounded-xl" placeholder="3000000" />
                 </div>
-              ) : (
-                <div className="space-y-2">
+              )}
+              {formData.salaryType === 'hourly' && (
+                <div className="space-y-2 col-span-2">
                   <Label>Soatlik stavka (so'm)</Label>
-                  <Input type="number" value={formData.hourlyRate} onChange={e => setFormData({ ...formData, hourlyRate: Number(e.target.value) })} className="rounded-xl" />
+                  <Input type="number" value={formData.hourlyRate} onChange={e => setFormData({ ...formData, hourlyRate: Number(e.target.value) })} className="rounded-xl" placeholder="25000" />
                 </div>
+              )}
+              {formData.salaryType === 'daily' && (
+                <div className="space-y-2 col-span-2">
+                  <Label>Kunlik stavka (so'm)</Label>
+                  <Input type="number" value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: Number(e.target.value) })} className="rounded-xl" placeholder="150000" />
+                </div>
+              )}
+              {formData.salaryType === 'piecerate' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>1 dona narxi (so'm)</Label>
+                    <Input type="number" value={formData.pieceRate} onChange={e => setFormData({ ...formData, pieceRate: Number(e.target.value) })} className="rounded-xl" placeholder="5000" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Oylik plan (dona)</Label>
+                    <Input type="number" value={formData.pieceRatePlan} onChange={e => setFormData({ ...formData, pieceRatePlan: Number(e.target.value) })} className="rounded-xl" placeholder="100" />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Bonus foizi (plan oshganda, %)</Label>
+                    <Input type="number" value={formData.bonusPercent} onChange={e => setFormData({ ...formData, bonusPercent: Number(e.target.value) })} className="rounded-xl" placeholder="20" />
+                    <p className="text-xs text-muted-foreground">Misol: Plan 100 dona, hodim 150 dona qilsa — 50 dona uchun {formData.bonusPercent}% qo'shimcha bonus</p>
+                  </div>
+                </>
               )}
               {(departments as any[]).length > 0 && (
                 <div className="space-y-2 col-span-2">

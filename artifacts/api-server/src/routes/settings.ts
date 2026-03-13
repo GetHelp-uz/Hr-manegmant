@@ -65,6 +65,21 @@ router.get("/qr-code", requireAuth, async (req, res) => {
   }
 });
 
+router.patch("/salary-visibility", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const { showSalaryToEmployee } = req.body;
+    const [updated] = await db.update(companiesTable)
+      .set({ showSalaryToEmployee: Boolean(showSalaryToEmployee) })
+      .where(eq(companiesTable.id, companyId)).returning();
+    const { password, ...safe } = updated;
+    return res.json(safe);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/regenerate-code", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;

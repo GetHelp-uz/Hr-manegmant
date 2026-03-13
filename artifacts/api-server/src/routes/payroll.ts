@@ -33,7 +33,7 @@ router.get("/", requireAuth, async (req, res) => {
       return formatPayroll(r, emp, approver, payer);
     }));
 
-    const totalAmount = withEmployees.reduce((sum, p) => sum + (p.grossSalary || 0), 0);
+    const totalAmount = withEmployees.reduce((sum, p) => sum + (p.netSalary || p.grossSalary || 0), 0);
     return res.json({ data: withEmployees, total: withEmployees.length, totalAmount });
   } catch (err) {
     console.error(err);
@@ -64,11 +64,17 @@ router.post("/calculate", requireAdmin, async (req, res) => {
       const totalDays = attendanceRecords.filter(a => a.checkIn).length;
 
       let grossSalary = 0;
-      if (emp.salaryType === "hourly" && emp.hourlyRate) {
+      const salaryType = emp.salaryType || "monthly";
+
+      if (salaryType === "hourly" && emp.hourlyRate) {
         grossSalary = totalHours * parseFloat(emp.hourlyRate.toString());
-      } else if (emp.salaryType === "monthly" && emp.monthlySalary) {
+      } else if (salaryType === "monthly" && emp.monthlySalary) {
         const workingDaysInMonth = 22;
         grossSalary = (parseFloat(emp.monthlySalary.toString()) / workingDaysInMonth) * totalDays;
+      } else if (salaryType === "daily" && emp.dailyRate) {
+        grossSalary = totalDays * parseFloat(emp.dailyRate.toString());
+      } else if (salaryType === "piecerate") {
+        grossSalary = 0;
       }
 
       const [existing] = await db.select().from(payrollTable).where(
@@ -77,19 +83,32 @@ router.post("/calculate", requireAdmin, async (req, res) => {
       );
 
       let payrollRecord;
+      const netSalary = grossSalary;
+
       if (existing) {
         if (existing.status === "paid") {
           results.push(formatPayroll(existing, emp, null, null));
           continue;
         }
         const [updated] = await db.update(payrollTable)
-          .set({ totalHours: totalHours.toFixed(2), totalDays, grossSalary: grossSalary.toFixed(2), status: "draft" })
+          .set({
+            totalHours: totalHours.toFixed(2),
+            totalDays,
+            grossSalary: grossSalary.toFixed(2),
+            netSalary: netSalary.toFixed(2),
+            status: "draft"
+          })
           .where(eq(payrollTable.id, existing.id)).returning();
         payrollRecord = updated;
       } else {
         const [created] = await db.insert(payrollTable).values({
           employeeId: emp.id, companyId, month, year,
-          totalHours: totalHours.toFixed(2), totalDays, grossSalary: grossSalary.toFixed(2), status: "draft",
+          totalHours: totalHours.toFixed(2), totalDays,
+          grossSalary: grossSalary.toFixed(2),
+          netSalary: netSalary.toFixed(2),
+          bonusAmount: "0", deductions: "0",
+          totalPieces: 0,
+          status: "draft",
         }).returning();
         payrollRecord = created;
       }
@@ -97,8 +116,60 @@ router.post("/calculate", requireAdmin, async (req, res) => {
       results.push(formatPayroll(payrollRecord, emp, null, null));
     }
 
-    const totalAmount = results.reduce((sum, p) => sum + (p.grossSalary || 0), 0);
+    const totalAmount = results.reduce((sum, p) => sum + (p.netSalary || p.grossSalary || 0), 0);
     return res.json({ data: results, total: results.length, totalAmount });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.patch("/:id/pieces", requireAdmin, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const id = parseInt(req.params.id);
+    const { totalPieces, bonusAmount, deductions } = req.body;
+
+    const [existing] = await db.select().from(payrollTable).where(and(
+      eq(payrollTable.id, id), eq(payrollTable.companyId, companyId)
+    ));
+    if (!existing) return res.status(404).json({ error: "not_found" });
+    if (existing.status === "paid") return res.status(400).json({ error: "bad_request", message: "Cannot edit paid payroll" });
+
+    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, existing.employeeId));
+
+    let grossSalary = parseFloat(existing.grossSalary?.toString() || "0");
+    let bonus = parseFloat(bonusAmount?.toString() || existing.bonusAmount?.toString() || "0");
+    const deductionAmt = parseFloat(deductions?.toString() || existing.deductions?.toString() || "0");
+
+    if (emp?.salaryType === "piecerate" && emp?.pieceRate && totalPieces !== undefined) {
+      const pieces = parseInt(totalPieces);
+      const rate = parseFloat(emp.pieceRate.toString());
+      const plan = emp.pieceRatePlan || 0;
+      const bonusPct = parseFloat(emp.bonusPercent?.toString() || "0");
+
+      if (plan > 0 && pieces > plan) {
+        const basePieces = plan;
+        const overPieces = pieces - plan;
+        grossSalary = basePieces * rate + overPieces * rate;
+        bonus = overPieces * rate * (bonusPct / 100);
+      } else {
+        grossSalary = pieces * rate;
+        bonus = 0;
+      }
+    }
+
+    const netSalary = grossSalary + bonus - deductionAmt;
+
+    const [updated] = await db.update(payrollTable).set({
+      totalPieces: totalPieces !== undefined ? parseInt(totalPieces) : existing.totalPieces,
+      grossSalary: grossSalary.toFixed(2),
+      bonusAmount: bonus.toFixed(2),
+      deductions: deductionAmt.toFixed(2),
+      netSalary: netSalary.toFixed(2),
+    }).where(eq(payrollTable.id, id)).returning();
+
+    return res.json({ data: formatPayroll(updated, emp, null, null) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "server_error" });
@@ -113,8 +184,7 @@ router.patch("/:id/approve", requireAdmin, async (req, res) => {
     const { notes } = req.body;
 
     const [existing] = await db.select().from(payrollTable).where(and(
-      eq(payrollTable.id, id),
-      eq(payrollTable.companyId, companyId),
+      eq(payrollTable.id, id), eq(payrollTable.companyId, companyId),
     ));
     if (!existing) return res.status(404).json({ error: "not_found" });
     if (existing.status === "paid") return res.status(400).json({ error: "bad_request", message: "Already paid" });
@@ -143,8 +213,7 @@ router.patch("/:id/pay", requireAccountant, async (req, res) => {
     const { notes } = req.body;
 
     const [existing] = await db.select().from(payrollTable).where(and(
-      eq(payrollTable.id, id),
-      eq(payrollTable.companyId, companyId),
+      eq(payrollTable.id, id), eq(payrollTable.companyId, companyId),
     ));
     if (!existing) return res.status(404).json({ error: "not_found" });
     if (existing.status !== "approved") {
@@ -195,6 +264,10 @@ function formatEmployee(e: any) {
     salaryType: e.salaryType,
     hourlyRate: e.hourlyRate ? parseFloat(e.hourlyRate) : null,
     monthlySalary: e.monthlySalary ? parseFloat(e.monthlySalary) : null,
+    dailyRate: e.dailyRate ? parseFloat(e.dailyRate) : null,
+    pieceRate: e.pieceRate ? parseFloat(e.pieceRate) : null,
+    pieceRatePlan: e.pieceRatePlan || 0,
+    bonusPercent: e.bonusPercent ? parseFloat(e.bonusPercent) : 0,
     qrCode: e.qrCode, telegramId: e.telegramId, createdAt: e.createdAt,
   };
 }
@@ -205,7 +278,11 @@ function formatPayroll(p: any, emp: any, approver: any, payer: any) {
     month: p.month, year: p.year,
     totalHours: p.totalHours ? parseFloat(p.totalHours) : 0,
     totalDays: p.totalDays || 0,
+    totalPieces: p.totalPieces || 0,
     grossSalary: p.grossSalary ? parseFloat(p.grossSalary) : 0,
+    bonusAmount: p.bonusAmount ? parseFloat(p.bonusAmount) : 0,
+    deductions: p.deductions ? parseFloat(p.deductions) : 0,
+    netSalary: p.netSalary ? parseFloat(p.netSalary) : (p.grossSalary ? parseFloat(p.grossSalary) : 0),
     status: p.status || "draft",
     approvedBy: approver,
     approvedAt: p.approvedAt,

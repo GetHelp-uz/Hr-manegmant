@@ -15,6 +15,7 @@ import {
   HandCoins,
   MonitorPlay,
   UserCog,
+  Download,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
@@ -59,6 +60,7 @@ export function Sidebar() {
     { name: t('devices'), href: "/devices", icon: MonitorSmartphone, roles: ["admin"] },
     { name: t('payroll'), href: "/payroll", icon: Banknote, roles: ["admin", "accountant"] },
     { name: t('reports'), href: "/reports", icon: FileBarChart, roles: ["admin", "accountant", "viewer"] },
+    { name: "Eksport / Sinxron", href: "/export", icon: Download, roles: ["admin", "accountant"] },
     { name: "Foydalanuvchilar", href: "/staff", icon: UserCog, roles: ["admin"] },
     { name: t('settings'), href: "/settings", icon: Settings, roles: ["admin"] },
   ];
