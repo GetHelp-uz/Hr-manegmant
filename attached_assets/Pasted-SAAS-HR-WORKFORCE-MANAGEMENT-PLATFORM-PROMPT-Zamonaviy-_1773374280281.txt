@@ -1,0 +1,310 @@
+SAAS HR WORKFORCE MANAGEMENT PLATFORM PROMPT
+
+Zamonaviy SaaS HR Workforce Management platforma yarating. Platforma bir vaqtning o‘zida 1000+ kompaniya ishlata olishi kerak.
+
+ASOSIY FUNKSIYALAR
+
+- Multi company (multi-tenant system)
+- QR attendance tizimi
+- Planshet kamera orqali QR scan
+- QR scan paytida rasmga olish
+- Telegram bot orqali xabar yuborish
+- Real-time davomat
+- O'zbek, Rus, Ingliz tillari
+
+---
+
+MULTI TENANT ARXITEKTURA
+
+Har bir kompaniya o‘z workspace ga ega bo‘ladi.
+
+Har bir kompaniya uchun alohida:
+
+- xodimlar
+- davomat
+- maosh
+- qurilmalar
+- hisobotlar
+
+---
+
+DATABASE SQL STRUCTURE (POSTGRESQL)
+
+CREATE TABLE companies (
+id SERIAL PRIMARY KEY,
+name VARCHAR(255),
+phone VARCHAR(50),
+email VARCHAR(255),
+password TEXT,
+logo TEXT,
+subscription_plan VARCHAR(50),
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE admins (
+id SERIAL PRIMARY KEY,
+company_id INTEGER REFERENCES companies(id),
+name VARCHAR(255),
+email VARCHAR(255),
+password TEXT,
+role VARCHAR(50),
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE employees (
+id SERIAL PRIMARY KEY,
+company_id INTEGER REFERENCES companies(id),
+full_name VARCHAR(255),
+phone VARCHAR(50),
+position VARCHAR(255),
+salary_type VARCHAR(50),
+hourly_rate NUMERIC,
+monthly_salary NUMERIC,
+qr_code TEXT,
+telegram_id VARCHAR(100),
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE devices (
+id SERIAL PRIMARY KEY,
+company_id INTEGER REFERENCES companies(id),
+device_name VARCHAR(255),
+location VARCHAR(255),
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE photos (
+id SERIAL PRIMARY KEY,
+employee_id INTEGER REFERENCES employees(id),
+company_id INTEGER REFERENCES companies(id),
+image_url TEXT,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE attendance (
+id SERIAL PRIMARY KEY,
+employee_id INTEGER REFERENCES employees(id),
+company_id INTEGER REFERENCES companies(id),
+check_in TIMESTAMP,
+check_out TIMESTAMP,
+work_hours NUMERIC,
+photo_id INTEGER REFERENCES photos(id),
+device_id INTEGER REFERENCES devices(id),
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE subscriptions (
+id SERIAL PRIMARY KEY,
+company_id INTEGER REFERENCES companies(id),
+plan_name VARCHAR(50),
+employee_limit INTEGER,
+price NUMERIC,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+---
+
+QR CODE GENERATOR (NODE.JS)
+
+const QRCode = require("qrcode");
+
+async function generateEmployeeQR(employeeId, companyId){
+
+const qrData = JSON.stringify({
+employee_id: employeeId,
+company_id: companyId
+});
+
+const qr = await QRCode.toDataURL(qrData);
+
+return qr;
+}
+
+module.exports = generateEmployeeQR;
+
+---
+
+TELEGRAM BOT BACKEND (NODE.JS)
+
+const TelegramBot = require("node-telegram-bot-api");
+const token = "YOUR_TELEGRAM_BOT_TOKEN";
+
+const bot = new TelegramBot(token,{polling:true});
+
+bot.onText(//start/,msg=>{
+bot.sendMessage(msg.chat.id,"Assalomu alaykum HR tizim botiga xush kelibsiz");
+});
+
+bot.onText(//bugun/,msg=>{
+bot.sendMessage(msg.chat.id,"Bugungi ishlagan vaqtingiz 8 soat");
+});
+
+bot.onText(//oylik/,msg=>{
+bot.sendMessage(msg.chat.id,"Sizning oylik daromadingiz 4 500 000 so'm");
+});
+
+bot.onText(//tarix/,msg=>{
+bot.sendMessage(msg.chat.id,"Davomat tarixingiz yuklanmoqda...");
+});
+
+module.exports = bot;
+
+---
+
+QR SCAN API (EXPRESS BACKEND)
+
+app.post("/scan", async(req,res)=>{
+
+const {employee_id,company_id,device_id}=req.body;
+
+const now=new Date();
+
+const attendance=await db.query(
+"SELECT * FROM attendance WHERE employee_id=$1 AND DATE(created_at)=CURRENT_DATE",
+[employee_id]
+);
+
+if(attendance.rows.length===0){
+
+await db.query(
+"INSERT INTO attendance (employee_id,company_id,check_in,device_id) VALUES ($1,$2,$3,$4)",
+[employee_id,company_id,now,device_id]
+);
+
+res.json({message:"CHECK IN"});
+
+}else{
+
+await db.query(
+"UPDATE attendance SET check_out=$1 WHERE id=$2",
+[now,attendance.rows[0].id]
+);
+
+res.json({message:"CHECK OUT"});
+}
+
+});
+
+---
+
+PLANSHET QR SCANNER (FRONTEND JS)
+
+import QrScanner from "qr-scanner";
+
+const video=document.getElementById("video");
+
+const scanner=new QrScanner(video,result=>{
+
+fetch("/scan",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+qr_data:result
+})
+});
+
+});
+
+scanner.start();
+
+---
+
+QR SCAN PAYTIDA RASM OLISH
+
+navigator.mediaDevices.getUserMedia({video:true})
+.then(stream=>{
+
+const video=document.querySelector("video");
+video.srcObject=stream;
+
+const canvas=document.createElement("canvas");
+
+setTimeout(()=>{
+
+canvas.getContext("2d").drawImage(video,0,0,640,480);
+
+const photo=canvas.toDataURL();
+
+fetch("/upload-photo",{
+method:"POST",
+body:JSON.stringify({image:photo})
+});
+
+},2000);
+
+});
+
+---
+
+TELEGRAM XABAR YUBORISH
+
+Kelganda:
+
+bot.sendMessage(chat_id,
+`Siz ishga keldingiz
+
+Kelgan vaqt: ${time}
+Sana: ${date}`
+);
+
+Ketganda:
+
+bot.sendMessage(chat_id,
+`Ish yakunlandi
+
+Ketgan vaqt: ${time}
+Bugun ishlagan vaqt: ${hours} soat`
+);
+
+---
+
+SERVER ARXITEKTURASI
+
+Frontend
+React
+TailwindCSS
+
+Backend
+Node.js
+Express
+
+Database
+PostgreSQL
+
+Cache
+Redis
+
+Storage
+Cloud Storage
+
+Infrastructure
+Docker
+Load Balancer
+CDN
+
+---
+
+QO'SHIMCHA FUNKSIYALAR
+
+AI attendance analytics
+Face recognition
+Kechikish ogohlantirish
+Avtomatik oylik hisobot
+Push notifications
+Mobil ilova
+
+---
+
+TILLAR
+
+O'zbek
+Rus
+Ingliz
+
+Localization papkasi
+
+/locales/uz.json
+/locales/ru.json
+/locales/en.json

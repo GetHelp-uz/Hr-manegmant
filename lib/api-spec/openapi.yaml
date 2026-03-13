@@ -1,22 +1,34 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: HR Workforce Management Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: companies
+    description: Company management
+  - name: employees
+    description: Employee management
+  - name: attendance
+    description: Attendance tracking
+  - name: devices
+    description: Device management
+  - name: payroll
+    description: Payroll management
+  - name: reports
+    description: Reports and analytics
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +36,474 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Company admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Company registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user info
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /companies/me:
+    get:
+      operationId: getMyCompany
+      tags: [companies]
+      summary: Get current company info
+      responses:
+        "200":
+          description: Company info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+    put:
+      operationId: updateMyCompany
+      tags: [companies]
+      summary: Update company info
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompanyRequest"
+      responses:
+        "200":
+          description: Company updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+
+  /companies/stats:
+    get:
+      operationId: getCompanyStats
+      tags: [companies]
+      summary: Get company dashboard statistics
+      responses:
+        "200":
+          description: Company statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyStats"
+
+  /employees:
+    get:
+      operationId: listEmployees
+      tags: [employees]
+      summary: List all employees in the company
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: position
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeListResponse"
+    post:
+      operationId: createEmployee
+      tags: [employees]
+      summary: Create a new employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployeeRequest"
+      responses:
+        "201":
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+
+  /employees/{id}:
+    get:
+      operationId: getEmployee
+      tags: [employees]
+      summary: Get employee by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Employee details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateEmployee
+      tags: [employees]
+      summary: Update employee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployeeRequest"
+      responses:
+        "200":
+          description: Employee updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+    delete:
+      operationId: deleteEmployee
+      tags: [employees]
+      summary: Delete employee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Employee deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /employees/{id}/qr:
+    get:
+      operationId: getEmployeeQr
+      tags: [employees]
+      summary: Get employee QR code
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: QR code data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrCodeResponse"
+
+  /attendance/scan:
+    post:
+      operationId: scanAttendance
+      tags: [attendance]
+      summary: Process QR scan for attendance (check-in or check-out)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanRequest"
+      responses:
+        "200":
+          description: Attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResponse"
+        "400":
+          description: Invalid QR or error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /attendance:
+    get:
+      operationId: listAttendance
+      tags: [attendance]
+      summary: List attendance records
+      parameters:
+        - name: employee_id
+          in: query
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Attendance records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceListResponse"
+
+  /attendance/today:
+    get:
+      operationId: getTodayAttendance
+      tags: [attendance]
+      summary: Get today's attendance records
+      responses:
+        "200":
+          description: Today's attendance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceListResponse"
+
+  /devices:
+    get:
+      operationId: listDevices
+      tags: [devices]
+      summary: List scanner devices
+      responses:
+        "200":
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceListResponse"
+    post:
+      operationId: createDevice
+      tags: [devices]
+      summary: Register a new scanner device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeviceRequest"
+      responses:
+        "201":
+          description: Device created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+
+  /devices/{id}:
+    put:
+      operationId: updateDevice
+      tags: [devices]
+      summary: Update device
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeviceRequest"
+      responses:
+        "200":
+          description: Device updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+    delete:
+      operationId: deleteDevice
+      tags: [devices]
+      summary: Delete device
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Device deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /payroll:
+    get:
+      operationId: listPayroll
+      tags: [payroll]
+      summary: List payroll records
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: employee_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payroll records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayrollListResponse"
+
+  /payroll/calculate:
+    post:
+      operationId: calculatePayroll
+      tags: [payroll]
+      summary: Calculate payroll for a month
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculatePayrollRequest"
+      responses:
+        "200":
+          description: Payroll calculated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayrollListResponse"
+
+  /reports/attendance-summary:
+    get:
+      operationId: getAttendanceSummary
+      tags: [reports]
+      summary: Get attendance summary report
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attendance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceSummaryResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +514,506 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    RegisterRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        adminName:
+          type: string
+      required:
+        - companyName
+        - phone
+        - email
+        - password
+        - adminName
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        user:
+          $ref: "#/components/schemas/AdminUser"
+        company:
+          $ref: "#/components/schemas/Company"
+      required:
+        - success
+        - user
+        - company
+
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AdminUser"
+        company:
+          $ref: "#/components/schemas/Company"
+      required:
+        - user
+        - company
+
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+      required:
+        - id
+        - companyId
+        - name
+        - email
+        - role
+
+    Company:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        logo:
+          type: string
+          nullable: true
+        subscriptionPlan:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - phone
+        - email
+        - subscriptionPlan
+        - createdAt
+
+    UpdateCompanyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        logo:
+          type: string
+
+    CompanyStats:
+      type: object
+      properties:
+        totalEmployees:
+          type: integer
+        presentToday:
+          type: integer
+        absentToday:
+          type: integer
+        lateToday:
+          type: integer
+        totalDevices:
+          type: integer
+        attendanceRate:
+          type: number
+      required:
+        - totalEmployees
+        - presentToday
+        - absentToday
+        - lateToday
+        - totalDevices
+        - attendanceRate
+
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        fullName:
+          type: string
+        phone:
+          type: string
+        position:
+          type: string
+        salaryType:
+          type: string
+          enum: [hourly, monthly]
+        hourlyRate:
+          type: number
+          nullable: true
+        monthlySalary:
+          type: number
+          nullable: true
+        qrCode:
+          type: string
+          nullable: true
+        telegramId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - companyId
+        - fullName
+        - phone
+        - position
+        - salaryType
+        - createdAt
+
+    CreateEmployeeRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        phone:
+          type: string
+        position:
+          type: string
+        salaryType:
+          type: string
+          enum: [hourly, monthly]
+        hourlyRate:
+          type: number
+        monthlySalary:
+          type: number
+        telegramId:
+          type: string
+      required:
+        - fullName
+        - phone
+        - position
+        - salaryType
+
+    UpdateEmployeeRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        phone:
+          type: string
+        position:
+          type: string
+        salaryType:
+          type: string
+          enum: [hourly, monthly]
+        hourlyRate:
+          type: number
+        monthlySalary:
+          type: number
+        telegramId:
+          type: string
+
+    EmployeeListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Employee"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - data
+        - total
+        - page
+        - limit
+
+    QrCodeResponse:
+      type: object
+      properties:
+        qrCode:
+          type: string
+        employeeId:
+          type: integer
+      required:
+        - qrCode
+        - employeeId
+
+    ScanRequest:
+      type: object
+      properties:
+        qrData:
+          type: string
+        deviceId:
+          type: integer
+        photo:
+          type: string
+          nullable: true
+      required:
+        - qrData
+        - deviceId
+
+    ScanResponse:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [check_in, check_out]
+        employee:
+          $ref: "#/components/schemas/Employee"
+        attendance:
+          $ref: "#/components/schemas/Attendance"
+        message:
+          type: string
+      required:
+        - action
+        - employee
+        - attendance
+        - message
+
+    Attendance:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        companyId:
+          type: integer
+        checkIn:
+          type: string
+          format: date-time
+          nullable: true
+        checkOut:
+          type: string
+          format: date-time
+          nullable: true
+        workHours:
+          type: number
+          nullable: true
+        deviceId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        employee:
+          $ref: "#/components/schemas/Employee"
+      required:
+        - id
+        - employeeId
+        - companyId
+        - createdAt
+        - employee
+
+    AttendanceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attendance"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - data
+        - total
+        - page
+        - limit
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        deviceName:
+          type: string
+        location:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - companyId
+        - deviceName
+        - location
+        - createdAt
+
+    CreateDeviceRequest:
+      type: object
+      properties:
+        deviceName:
+          type: string
+        location:
+          type: string
+      required:
+        - deviceName
+        - location
+
+    DeviceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Device"
+        total:
+          type: integer
+      required:
+        - data
+        - total
+
+    PayrollRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        companyId:
+          type: integer
+        month:
+          type: integer
+        year:
+          type: integer
+        totalHours:
+          type: number
+        totalDays:
+          type: integer
+        grossSalary:
+          type: number
+        employee:
+          $ref: "#/components/schemas/Employee"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - employeeId
+        - companyId
+        - month
+        - year
+        - totalHours
+        - totalDays
+        - grossSalary
+        - employee
+        - createdAt
+
+    PayrollListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PayrollRecord"
+        total:
+          type: integer
+        totalAmount:
+          type: number
+      required:
+        - data
+        - total
+        - totalAmount
+
+    CalculatePayrollRequest:
+      type: object
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+      required:
+        - month
+        - year
+
+    AttendanceSummaryResponse:
+      type: object
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+        employeeSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeAttendanceSummary"
+      required:
+        - month
+        - year
+        - employeeSummaries
+
+    EmployeeAttendanceSummary:
+      type: object
+      properties:
+        employee:
+          $ref: "#/components/schemas/Employee"
+        presentDays:
+          type: integer
+        absentDays:
+          type: integer
+        lateDays:
+          type: integer
+        totalHours:
+          type: number
+        avgArrivalTime:
+          type: string
+          nullable: true
+      required:
+        - employee
+        - presentDays
+        - absentDays
+        - lateDays
+        - totalHours
