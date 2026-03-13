@@ -52,3 +52,16 @@ export const adminActionLogTable = pgTable("admin_action_log", {
   details: jsonb("details").default({}),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const platformSmsSettingsTable = pgTable("platform_sms_settings", {
+  id: serial("id").primaryKey(),
+  provider: varchar("provider", { length: 50 }).default("eskiz"),
+  email: varchar("email", { length: 255 }),
+  password: text("password"),
+  senderId: varchar("sender_id", { length: 50 }).default("4546"),
+  enabled: boolean("enabled").default(false),
+  testMode: boolean("test_mode").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

@@ -24,11 +24,13 @@ import Join from "@/pages/join/index";
 import Staff from "@/pages/staff/index";
 import ExportPage from "@/pages/export/index";
 import AnalyticsPage from "@/pages/analytics/index";
+import BroadcastingPage from "@/pages/broadcasting/index";
 import PlatformAdminLogin from "@/pages/platform-admin/login";
 import PlatformAdminDashboard from "@/pages/platform-admin/dashboard";
 import PlatformAdminCompany from "@/pages/platform-admin/company";
 import PlatformAdminSystem from "@/pages/platform-admin/system";
 import PlatformAdminAiSettings from "@/pages/platform-admin/ai-settings";
+import PlatformAdminSmsSettings from "@/pages/platform-admin/sms-settings";
 
 const queryClient = new QueryClient();
 
@@ -55,11 +57,13 @@ function Router() {
       <Route path="/staff" component={Staff} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={AnalyticsPage} />
+      <Route path="/broadcasting" component={BroadcastingPage} />
       <Route path="/platform-admin/login" component={PlatformAdminLogin} />
       <Route path="/platform-admin/dashboard" component={PlatformAdminDashboard} />
       <Route path="/platform-admin/companies/:id" component={PlatformAdminCompany} />
       <Route path="/platform-admin/system" component={PlatformAdminSystem} />
       <Route path="/platform-admin/ai-settings" component={PlatformAdminAiSettings} />
+      <Route path="/platform-admin/sms-settings" component={PlatformAdminSmsSettings} />
       <Route component={NotFound} />
     </Switch>
   );

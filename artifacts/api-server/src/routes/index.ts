@@ -17,6 +17,7 @@ import staffRouter from "./staff";
 import platformAdminRouter from "./platform-admin";
 import exportRouter from "./export";
 import analyticsRouter from "./analytics";
+import broadcastingRouter from "./broadcasting";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use("/staff", staffRouter);
 router.use("/platform-admin", platformAdminRouter);
 router.use("/export", exportRouter);
 router.use("/analytics", analyticsRouter);
+router.use("/broadcasting", broadcastingRouter);
 
 export default router;

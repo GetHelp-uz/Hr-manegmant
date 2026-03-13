@@ -713,4 +713,73 @@ router.post("/ai-test", requirePlatformAuth, async (req, res) => {
   } catch (err) { return res.status(500).json({ error: "server_error" }); }
 });
 
+// ─── SMS ESKIZ SETTINGS ───────────────────────────────────────────
+router.get("/sms-settings", requirePlatformAuth, async (req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, provider, email, sender_id, enabled, test_mode, notes, created_at, updated_at
+      FROM platform_sms_settings
+      LIMIT 1
+    `);
+    const row = (rows as any).rows?.[0] || null;
+    return res.json({ settings: row });
+  } catch (err) {
+    return res.json({ settings: null });
+  }
+});
+
+router.put("/sms-settings", requirePlatformAuth, async (req, res) => {
+  try {
+    const { email, password, senderId, enabled, testMode, notes } = req.body;
+    if (!email) return res.status(400).json({ error: "Email kiritilishi shart" });
+
+    const existing = await db.execute(sql`SELECT id FROM platform_sms_settings LIMIT 1`);
+    const existingRow = (existing as any).rows?.[0];
+
+    if (existingRow) {
+      if (password && password.trim()) {
+        await db.execute(sql`
+          UPDATE platform_sms_settings
+          SET email = ${email}, password = ${password}, sender_id = ${senderId || "4546"},
+              enabled = ${!!enabled}, test_mode = ${!!testMode}, notes = ${notes || null}, updated_at = NOW()
+          WHERE id = ${existingRow.id}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE platform_sms_settings
+          SET email = ${email}, sender_id = ${senderId || "4546"},
+              enabled = ${!!enabled}, test_mode = ${!!testMode}, notes = ${notes || null}, updated_at = NOW()
+          WHERE id = ${existingRow.id}
+        `);
+      }
+    } else {
+      await db.execute(sql`
+        INSERT INTO platform_sms_settings (provider, email, password, sender_id, enabled, test_mode, notes)
+        VALUES ('eskiz', ${email}, ${password || null}, ${senderId || "4546"}, ${!!enabled}, ${!!testMode}, ${notes || null})
+      `);
+    }
+
+    logAction("platform_admin", "sms_settings_updated", "sms_settings", null, { email }).catch(() => {});
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("SMS settings save error:", err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.post("/sms-test", requirePlatformAuth, async (req, res) => {
+  try {
+    const { testEskizConnection } = await import("../lib/eskiz");
+    const rows = await db.execute(sql`SELECT email, password FROM platform_sms_settings WHERE enabled = true LIMIT 1`);
+    const row = (rows as any).rows?.[0];
+    if (!row?.email || !row?.password) {
+      return res.json({ success: false, error: "SMS sozlamalar topilmadi yoki to'ldirilmagan" });
+    }
+    const result = await testEskizConnection(row.email, row.password);
+    return res.json(result);
+  } catch (err: any) {
+    return res.json({ success: false, error: err.message });
+  }
+});
+
 export default router;

@@ -17,6 +17,7 @@ import {
   Brain,
   ChevronLeft,
   ChevronRight,
+  Radio,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
@@ -77,6 +78,9 @@ export function Sidebar() {
     ]},
     { group: "Tahlil", items: [
       { name: "AI Tahlil", href: "/analytics", icon: Brain, roles: ["admin", "accountant", "observer"] },
+    ]},
+    { group: "Xabarlar", items: [
+      { name: "Ommaviy Xabar", href: "/broadcasting", icon: Radio, roles: ["admin"] },
     ]},
     { group: "Tizim", items: [
       { name: "Foydalanuvchilar", href: "/staff", icon: UserCog, roles: ["admin"] },
