@@ -37,9 +37,8 @@ export async function sendTelegramMessage(telegramId: string, message: string) {
 }
 
 async function getEmployee(chatId: string) {
-  return db.query.employeesTable.findFirst({
-    where: eq(employeesTable.telegramId, chatId),
-  });
+  const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.telegramId, chatId));
+  return emp || null;
 }
 
 function mainMenu() {
@@ -101,17 +100,9 @@ function setupHandlers(bot: TelegramBot) {
     } else if (text === "/help" || text === "/menu") {
       const emp = await getEmployee(chatId);
       if (emp) {
-        await bot.sendMessage(
-          chatId,
-          `🏢 <b>HR Tizimi Bot</b>\n\nQuyidagi tugmalardan foydalaning:`,
-          { parse_mode: "HTML", ...mainMenu() }
-        );
+        await bot.sendMessage(chatId, `🏢 <b>HR Tizimi Bot</b>\n\nQuyidagi tugmalardan foydalaning:`, { parse_mode: "HTML", ...mainMenu() });
       } else {
-        await bot.sendMessage(
-          chatId,
-          `🏢 <b>HR Tizimi Botiga Xush Kelibsiz!</b>\n\nBotga ulanish uchun kompaniya QR kodini skanerlang.`,
-          { parse_mode: "HTML" }
-        );
+        await bot.sendMessage(chatId, `🏢 <b>HR Tizimi Botiga Xush Kelibsiz!</b>\n\nBotga ulanish uchun kompaniya QR kodini skanerlang.`, { parse_mode: "HTML" });
       }
     }
   });
@@ -126,18 +117,14 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
   const joinCode = parts[1]?.trim().toUpperCase();
 
   if (joinCode) {
-    const company = await db.query.companiesTable.findFirst({
-      where: eq(companiesTable.joinCode, joinCode),
-    });
+    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.joinCode, joinCode));
 
     if (!company) {
       await bot.sendMessage(chatId, `❌ Noto'g'ri kod. Iltimos, to'g'ri QR kodni skanerlang.`);
       return;
     }
 
-    const existingEmployee = await db.query.employeesTable.findFirst({
-      where: eq(employeesTable.telegramId, chatId),
-    });
+    const existingEmployee = await getEmployee(chatId);
 
     if (existingEmployee) {
       await bot.sendMessage(
@@ -160,11 +147,7 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
 
   const emp = await getEmployee(chatId);
   if (emp) {
-    await bot.sendMessage(
-      chatId,
-      `👋 Xush kelibsiz, <b>${emp.fullName}</b>!\n\nQuyidagi menyudan foydalaning:`,
-      { parse_mode: "HTML", ...mainMenu() }
-    );
+    await bot.sendMessage(chatId, `👋 Xush kelibsiz, <b>${emp.fullName}</b>!\n\nQuyidagi menyudan foydalaning:`, { parse_mode: "HTML", ...mainMenu() });
   } else {
     await bot.sendMessage(
       chatId,
@@ -181,12 +164,9 @@ async function handleConversation(bot: TelegramBot, chatId: string, text: string
 
   if (state.step === "enter_phone_for_join") {
     const phone = text.replace(/\s/g, "");
-    const employee = await db.query.employeesTable.findFirst({
-      where: and(
-        eq(employeesTable.companyId, state.data.companyId),
-        eq(employeesTable.phone, phone)
-      ),
-    });
+    const [employee] = await db.select().from(employeesTable).where(
+      and(eq(employeesTable.companyId, state.data.companyId), eq(employeesTable.phone, phone))
+    );
 
     if (!employee) {
       await bot.sendMessage(
@@ -247,24 +227,17 @@ async function handleConversation(bot: TelegramBot, chatId: string, text: string
 
   if (state.step === "leave_reason") {
     const reason = text === "/skip" ? null : text;
-    const { type, startDate, endDate, days, employeeId, companyId, companyName } = state.data;
+    const { type, startDate, endDate, days, employeeId, companyId } = state.data;
     delete userState[chatId];
 
     try {
-      const [request] = await db.insert(leaveRequestsTable).values({
-        employeeId,
-        companyId,
-        type,
-        startDate,
-        endDate,
-        days,
-        reason,
-        status: "pending",
+      await db.insert(leaveRequestsTable).values({
+        employeeId, companyId, type, startDate, endDate, days, reason, status: "pending",
       }).returning();
 
-      const company = await db.query.companiesTable.findFirst({ where: eq(companiesTable.id, companyId) });
+      const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId));
       if (company?.telegramAdminId) {
-        const emp = await db.query.employeesTable.findFirst({ where: eq(employeesTable.id, employeeId) });
+        const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, employeeId));
         const typeNames: Record<string, string> = { vacation: "Ta'til", sick: "Kasallik", other: "Boshqa" };
         await sendTelegramMessage(
           company.telegramAdminId,
@@ -293,11 +266,7 @@ async function startLeaveRequest(bot: TelegramBot, chatId: string, type: "vacati
     return;
   }
 
-  userState[chatId] = {
-    step: "leave_start_date",
-    data: { type, employeeId: emp.id, companyId: emp.companyId },
-  };
-
+  userState[chatId] = { step: "leave_start_date", data: { type, employeeId: emp.id, companyId: emp.companyId } };
   const typeLabel: Record<string, string> = { vacation: "Ta'til", sick: "Kasallik/Ruxsat", other: "Boshqa" };
   await bot.sendMessage(
     chatId,
@@ -313,9 +282,7 @@ async function handleSorov(bot: TelegramBot, chatId: string) {
     return;
   }
 
-  const requests = await db
-    .select()
-    .from(leaveRequestsTable)
+  const requests = await db.select().from(leaveRequestsTable)
     .where(eq(leaveRequestsTable.employeeId, emp.id))
     .orderBy(desc(leaveRequestsTable.createdAt))
     .limit(5);
@@ -347,12 +314,9 @@ async function handleBugun(bot: TelegramBot, chatId: string) {
       return;
     }
 
-    const todayRecord = await db.query.attendanceTable.findFirst({
-      where: and(
-        eq(attendanceTable.employeeId, employee.id),
-        sql`DATE(${attendanceTable.createdAt}) = CURRENT_DATE`
-      ),
-    });
+    const [todayRecord] = await db.select().from(attendanceTable).where(
+      and(eq(attendanceTable.employeeId, employee.id), sql`DATE(${attendanceTable.createdAt}) = CURRENT_DATE`)
+    );
 
     if (!todayRecord) {
       await bot.sendMessage(chatId, `📅 <b>Bugungi davomat</b>\n\nSiz bugun hali kirmaganlar ro'yxatidasiz.`, { parse_mode: "HTML", ...mainMenu() });
@@ -387,13 +351,13 @@ async function handleOylik(bot: TelegramBot, chatId: string) {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
-    const records = await db.query.attendanceTable.findMany({
-      where: and(
+    const records = await db.select().from(attendanceTable).where(
+      and(
         eq(attendanceTable.employeeId, employee.id),
         sql`EXTRACT(MONTH FROM ${attendanceTable.createdAt}) = ${month}`,
         sql`EXTRACT(YEAR FROM ${attendanceTable.createdAt}) = ${year}`,
-      ),
-    });
+      )
+    );
 
     const totalHours = records.reduce((sum, r) => sum + (r.workHours ? parseFloat(r.workHours.toString()) : 0), 0);
     const totalDays = records.filter(r => r.checkIn).length;
@@ -411,7 +375,6 @@ async function handleOylik(bot: TelegramBot, chatId: string) {
     }
 
     const monthNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
-
     await bot.sendMessage(
       chatId,
       `💰 <b>${monthNames[month - 1]} ${year}</b>\n\n👤 ${employee.fullName}\n📅 Ish kunlari: ${totalDays} kun\n⏱ Jami soat: ${totalHours.toFixed(1)} soat\n⚠️ Kechikish: ${lateDays} kun\n${salaryInfo}\n💵 Hisoblangan: <b>${Math.round(salary).toLocaleString()} so'm</b>`,
@@ -431,11 +394,10 @@ async function handleTarix(bot: TelegramBot, chatId: string) {
       return;
     }
 
-    const records = await db.query.attendanceTable.findMany({
-      where: eq(attendanceTable.employeeId, employee.id),
-      orderBy: (att, { desc }) => [desc(att.createdAt)],
-      limit: 10,
-    });
+    const records = await db.select().from(attendanceTable)
+      .where(eq(attendanceTable.employeeId, employee.id))
+      .orderBy(desc(attendanceTable.createdAt))
+      .limit(10);
 
     if (!records.length) {
       await bot.sendMessage(chatId, "📊 Davomat tarixi mavjud emas.", mainMenu() as any);
