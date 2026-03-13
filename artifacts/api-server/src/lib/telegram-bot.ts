@@ -2,7 +2,109 @@ import TelegramBot from "node-telegram-bot-api";
 import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable, advanceRequestsTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 
+function formatTimeBotLocal(d: Date): string {
+  return d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
+}
+
+function calcLateBotMinutes(checkIn: Date, workStartTime: string, thresholdMinutes: number): number {
+  const [h, m] = workStartTime.split(":").map(Number);
+  const start = new Date(checkIn);
+  start.setHours(h, m, 0, 0);
+  const diffMs = checkIn.getTime() - start.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  return diffMin > thresholdMinutes ? diffMin : 0;
+}
+
+async function registerQrAttendance(bot: TelegramBot, chatId: string, employee: any) {
+  try {
+    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, employee.companyId));
+    const workStart = company?.workStartTime || "09:00";
+    const threshold = parseInt(company?.lateThresholdMinutes?.toString() || "15");
+
+    const [todayRecord] = await db.select().from(attendanceTable).where(
+      and(
+        eq(attendanceTable.employeeId, employee.id),
+        sql`DATE(${attendanceTable.createdAt}) = CURRENT_DATE`
+      )
+    );
+
+    const now = new Date();
+    const date = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+    if (!todayRecord) {
+      const lateMinutes = calcLateBotMinutes(now, workStart, threshold);
+      const status = lateMinutes > 0 ? "late" : "present";
+
+      await db.insert(attendanceTable).values({
+        employeeId: employee.id,
+        companyId: employee.companyId,
+        checkIn: now,
+        lateMinutes,
+        status,
+      });
+
+      const lateText = lateMinutes > 0 ? `\n⚠️ Kechikish: <b>${lateMinutes} daqiqa</b>` : "";
+      await bot.sendMessage(
+        chatId,
+        `✅ <b>Ishga keldingiz!</b>\n\n` +
+        `👤 ${employee.fullName}\n` +
+        `🕐 Kelish vaqti: <b>${formatTimeBotLocal(now)}</b>\n` +
+        `📅 Sana: ${date}${lateText}`,
+        { parse_mode: "HTML", ...mainMenu() }
+      );
+
+      if (company?.telegramAdminId) {
+        await bot.sendMessage(
+          company.telegramAdminId,
+          `📥 <b>${employee.fullName}</b> keldi\n🕐 ${formatTimeBotLocal(now)} — ${date}${lateText}`,
+          { parse_mode: "HTML" }
+        ).catch(() => {});
+      }
+    } else if (!todayRecord.checkOut) {
+      const checkInTime = todayRecord.checkIn ? new Date(todayRecord.checkIn) : now;
+      const workHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+      await db.update(attendanceTable)
+        .set({ checkOut: now, workHours: workHours.toFixed(2) })
+        .where(eq(attendanceTable.id, todayRecord.id));
+
+      await bot.sendMessage(
+        chatId,
+        `🏁 <b>Ish yakunlandi!</b>\n\n` +
+        `👤 ${employee.fullName}\n` +
+        `🕐 Ketish vaqti: <b>${formatTimeBotLocal(now)}</b>\n` +
+        `⏱ Ishlagan vaqt: <b>${workHours.toFixed(1)} soat</b>\n` +
+        `📅 Sana: ${date}`,
+        { parse_mode: "HTML", ...mainMenu() }
+      );
+
+      if (company?.telegramAdminId) {
+        await bot.sendMessage(
+          company.telegramAdminId,
+          `📤 <b>${employee.fullName}</b> ketdi\n🕐 ${formatTimeBotLocal(now)} — ${date}\n⏱ Ishlagan: <b>${workHours.toFixed(1)} soat</b>`,
+          { parse_mode: "HTML" }
+        ).catch(() => {});
+      }
+    } else {
+      const ci = formatTimeBotLocal(new Date(todayRecord.checkIn!));
+      const co = formatTimeBotLocal(new Date(todayRecord.checkOut!));
+      const wh = todayRecord.workHours ? parseFloat(todayRecord.workHours.toString()).toFixed(1) : "0";
+      await bot.sendMessage(
+        chatId,
+        `ℹ️ <b>Bugun davomat allaqachon yakunlangan</b>\n\n` +
+        `👤 ${employee.fullName}\n` +
+        `🕐 Kelish: ${ci}\n🕐 Ketish: ${co}\n⏱ Ishlagan: ${wh} soat`,
+        { parse_mode: "HTML", ...mainMenu() }
+      );
+    }
+  } catch (err) {
+    console.error("[Bot QR attendance]", err);
+    await bot.sendMessage(chatId, "❌ Davomat qayd qilishda xatolik yuz berdi. Iltimos qayta urinib ko'ring.");
+  }
+}
+
 let bot: TelegramBot | null = null;
+let botUsername: string = process.env.TELEGRAM_BOT_USERNAME || "";
 
 const userState: Record<string, { step: string; data: any }> = {};
 
@@ -14,13 +116,23 @@ export function initTelegramBot() {
   }
   try {
     bot = new TelegramBot(token, { polling: true });
-    console.log("Telegram bot started successfully");
+    bot.getMe().then((me) => {
+      botUsername = me.username || "";
+      if (!process.env.TELEGRAM_BOT_USERNAME) {
+        process.env.TELEGRAM_BOT_USERNAME = botUsername;
+      }
+      console.log(`Telegram bot started successfully (@${botUsername})`);
+    }).catch(() => {});
     setupHandlers(bot);
     return bot;
   } catch (err) {
     console.error("Failed to start Telegram bot:", err);
     return null;
   }
+}
+
+export function getBotUsername(): string {
+  return botUsername || process.env.TELEGRAM_BOT_USERNAME || "HeadRecruiment_bot";
 }
 
 export function getBot(): TelegramBot | null {
@@ -130,27 +242,28 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
   const param = parts[1]?.trim();
 
   if (param) {
-    // Employee personal QR code: emp_{qrCode}
+    // Employee personal QR / Telegram deeplink: emp_{employeeId}
     if (param.startsWith("emp_")) {
-      const qrCode = param.slice(4);
-      const [employee] = await db.select().from(employeesTable).where(eq(employeesTable.qrCode, qrCode));
+      const empIdStr = param.slice(4);
+      const empId = parseInt(empIdStr);
+      if (!empId || isNaN(empId)) {
+        await bot.sendMessage(chatId, `❌ QR kod noto'g'ri. Admin bilan bog'laning.`);
+        return;
+      }
+      const [employee] = await db.select().from(employeesTable).where(eq(employeesTable.id, empId));
 
       if (!employee) {
         await bot.sendMessage(chatId, `❌ QR kod noto'g'ri yoki muddati o'tgan. Admin bilan bog'laning.`);
         return;
       }
 
-      // Already linked
+      // Already linked to this chat — register attendance via QR
       if (employee.telegramId && employee.telegramId === chatId) {
-        await bot.sendMessage(
-          chatId,
-          `✅ <b>Siz allaqachon ulangansiz!</b>\n\n👤 ${employee.fullName}\n📋 Lavozim: ${employee.position}`,
-          { parse_mode: "HTML", ...mainMenu() }
-        );
+        await registerQrAttendance(bot, chatId, employee);
         return;
       }
 
-      // Link employee to this Telegram
+      // Not linked yet — link employee to this Telegram account
       await db.update(employeesTable).set({ telegramId: chatId }).where(eq(employeesTable.id, employee.id));
       const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, employee.companyId));
 
@@ -160,9 +273,12 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
         `👤 Xodim: <b>${employee.fullName}</b>\n` +
         `🏢 Kompaniya: <b>${company?.name || "—"}</b>\n` +
         `📋 Lavozim: ${employee.position}\n\n` +
-        `Endi menyudan foydalanishingiz mumkin:`,
-        { parse_mode: "HTML", ...mainMenu() }
+        `📲 Endi QR kodingizni har kuni skanerlang — davomat avtomatik qayd etiladi!`,
+        { parse_mode: "HTML" }
       );
+      // Also register attendance right now on first link
+      const linkedEmployee = { ...employee, telegramId: chatId };
+      await registerQrAttendance(bot, chatId, linkedEmployee);
       return;
     }
 

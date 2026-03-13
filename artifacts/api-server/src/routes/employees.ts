@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, employeesTable, departmentsTable, companiesTable } from "@workspace/db";
 import { eq, and, ilike, sql, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
-import { sendTelegramPhoto, sendTelegramMessage } from "../lib/telegram-bot";
+import { sendTelegramPhoto, sendTelegramMessage, getBotUsername } from "../lib/telegram-bot";
 import QRCode from "qrcode";
 
 const router: IRouter = Router();
@@ -241,8 +241,7 @@ router.get("/:id/telegram-qr", requireAuth, async (req, res) => {
 
     if (!employee) return res.status(404).json({ error: "not_found" });
 
-    const botUsername = process.env.TELEGRAM_BOT_USERNAME || "hr_workforce_bot";
-    const deepLink = `https://t.me/${botUsername}?start=emp_${employee.id}`;
+    const deepLink = `https://t.me/${getBotUsername()}?start=emp_${employee.id}`;
     const telegramQr = await QRCode.toDataURL(deepLink, { width: 350, margin: 2 });
 
     return res.json({ qrCode: telegramQr, deepLink, employeeId: id, fullName: employee.fullName });
