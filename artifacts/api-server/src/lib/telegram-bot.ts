@@ -1,5 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
-import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable, advanceRequestsTable, departmentsTable } from "@workspace/db";
+import { db, employeesTable, attendanceTable, companiesTable, leaveRequestsTable, advanceRequestsTable, departmentsTable, pool } from "@workspace/db";
 import { eq, and, sql, desc, ilike } from "drizzle-orm";
 
 function formatTimeBotLocal(d: Date): string {
@@ -106,7 +106,54 @@ async function registerQrAttendance(bot: TelegramBot, chatId: string, employee: 
 let bot: TelegramBot | null = null;
 let botUsername: string = process.env.TELEGRAM_BOT_USERNAME || "";
 
-const userState: Record<string, { step: string; data: any }> = {};
+const _stateCache: Record<string, { step: string; data: any }> = {};
+
+async function _dbSaveState(chatId: string, state: { step: string; data: any }) {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query(
+        `INSERT INTO bot_user_states (chat_id, step, data, updated_at) VALUES ($1, $2, $3, now())
+         ON CONFLICT (chat_id) DO UPDATE SET step=$2, data=$3, updated_at=now()`,
+        [chatId, state.step, JSON.stringify(state.data)]
+      );
+    } finally { client.release(); }
+  } catch {}
+}
+
+async function _dbDeleteState(chatId: string) {
+  try {
+    const client = await pool.connect();
+    try { await client.query(`DELETE FROM bot_user_states WHERE chat_id=$1`, [chatId]); }
+    finally { client.release(); }
+  } catch {}
+}
+
+export async function loadBotStatesFromDb() {
+  try {
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query(`SELECT chat_id, step, data FROM bot_user_states WHERE updated_at > now() - interval '2 hours'`);
+      for (const row of rows) {
+        _stateCache[row.chat_id] = { step: row.step, data: row.data || {} };
+      }
+      if (rows.length > 0) console.log(`[bot] Loaded ${rows.length} active states from DB`);
+    } finally { client.release(); }
+  } catch (err: any) { console.warn("[bot] Could not load states from DB:", err.message); }
+}
+
+const userState = new Proxy(_stateCache, {
+  set(target, chatId: string, value: any) {
+    target[chatId] = value;
+    _dbSaveState(chatId, value).catch(() => {});
+    return true;
+  },
+  deleteProperty(target, chatId: string) {
+    delete target[chatId];
+    _dbDeleteState(chatId).catch(() => {});
+    return true;
+  },
+});
 
 export function initTelegramBot() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -123,6 +170,7 @@ export function initTelegramBot() {
       }
       console.log(`Telegram bot started successfully (@${botUsername})`);
     }).catch(() => {});
+    loadBotStatesFromDb().catch(() => {});
     setupHandlers(bot);
     return bot;
   } catch (err) {

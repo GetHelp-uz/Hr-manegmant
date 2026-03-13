@@ -99,6 +99,35 @@ const DDL_STATEMENTS: [string, string][] = [
       ('pro', 'Professional', 'Professional', 299000, 200, 5, true, true, true, false, true, true, false, 2),
       ('enterprise', 'Enterprise', 'Korporativ', 0, -1, -1, true, true, true, true, true, true, true, 3)
     ON CONFLICT (key) DO NOTHING`, "platform_plans.seed"],
+  [`CREATE TABLE IF NOT EXISTS bot_user_states (
+    chat_id varchar(50) PRIMARY KEY,
+    step varchar(100) NOT NULL,
+    data jsonb DEFAULT '{}',
+    updated_at timestamptz DEFAULT now()
+  )`, "bot_user_states"],
+  [`CREATE TABLE IF NOT EXISTS company_shifts (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name varchar(100) NOT NULL,
+    start_time varchar(10) NOT NULL DEFAULT '09:00',
+    end_time varchar(10) NOT NULL DEFAULT '18:00',
+    days varchar(50) DEFAULT '1,2,3,4,5',
+    is_default boolean DEFAULT false,
+    color varchar(20) DEFAULT '#3b82f6',
+    created_at timestamptz DEFAULT now()
+  )`, "company_shifts"],
+  [`CREATE TABLE IF NOT EXISTS company_audit_log (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL,
+    user_login varchar(100),
+    action varchar(100) NOT NULL,
+    target_type varchar(50),
+    target_id integer,
+    details jsonb DEFAULT '{}',
+    ip varchar(50),
+    created_at timestamptz DEFAULT now()
+  )`, "company_audit_log"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS shift_id integer`, "employees.shift_id"],
 ];
 
 export async function setupAdminTables() {

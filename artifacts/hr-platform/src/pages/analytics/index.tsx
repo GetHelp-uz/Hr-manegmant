@@ -87,6 +87,12 @@ export default function AnalyticsPage() {
     staleTime: 30000,
   });
 
+  const { data: predict } = useQuery({
+    queryKey: ["/api/analytics/predict"],
+    queryFn: () => apiClient.get("/api/analytics/predict").then((r: any) => (r?.data ?? r) as any),
+    staleTime: 60000,
+  });
+
   const ov = data?.overview;
   const trend = data?.trend || [];
   const empStats = data?.employeeStats || [];
@@ -465,6 +471,73 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             </div>
+
+            {/* ── PREDICTIVE ANALYTICS ───────────────────────────────────── */}
+            {predict && (
+              <div className="bg-white rounded-xl border border-border overflow-hidden">
+                <div className="px-6 pt-5 pb-4 border-b border-border">
+                  <SectionHeader
+                    icon={TrendingUp}
+                    title={`Bashorat — ${predict.period?.nextMonth}`}
+                    sub={`Keyingi oy uchun AI bashorat (${predict.period?.workDays} ish kuni)`}
+                    iconCls="bg-violet-50 text-violet-600"
+                  />
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                      <p className="text-xs text-blue-500 font-medium mb-1">Kutilgan davomat</p>
+                      <p className="text-2xl font-bold text-blue-700">{predict.attendance?.predictedAttendancePct}%</p>
+                      <p className="text-xs text-blue-400 mt-0.5">{predict.attendance?.predictedPresentDays} ta yozuv</p>
+                    </div>
+                    <div className={`rounded-xl p-4 border ${parseFloat(predict.attendance?.predictedLateRate) > 20 ? "bg-red-50 border-red-100" : "bg-amber-50 border-amber-100"}`}>
+                      <p className={`text-xs font-medium mb-1 ${parseFloat(predict.attendance?.predictedLateRate) > 20 ? "text-red-500" : "text-amber-500"}`}>Kechikish (bashorat)</p>
+                      <p className={`text-2xl font-bold ${parseFloat(predict.attendance?.predictedLateRate) > 20 ? "text-red-700" : "text-amber-700"}`}>{predict.attendance?.predictedLateRate}%</p>
+                      <p className={`text-xs mt-0.5 ${parseFloat(predict.attendance?.predictedLateRate) > 20 ? "text-red-400" : "text-amber-400"}`}>3 oylik trend asosida</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 col-span-2 sm:col-span-1">
+                      <p className="text-xs text-emerald-500 font-medium mb-1">Maosh fondi (bashorat)</p>
+                      <p className="text-2xl font-bold text-emerald-700">{(predict.payroll?.predictedTotal / 1_000_000).toFixed(1)}M</p>
+                      <p className="text-xs text-emerald-400 mt-0.5">so'm • xodim boshiga {(predict.payroll?.perEmployee || 0).toLocaleString("uz-UZ")}</p>
+                    </div>
+                  </div>
+
+                  {predict.warnings?.length > 0 && (
+                    <div className="space-y-2">
+                      {predict.warnings.map((w: any, i: number) => (
+                        <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${
+                          w.level === "danger" ? "bg-red-50 border-red-100" :
+                          w.level === "warning" ? "bg-amber-50 border-amber-100" : "bg-blue-50 border-blue-100"
+                        }`}>
+                          <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                            w.level === "danger" ? "text-red-500" :
+                            w.level === "warning" ? "text-amber-500" : "text-blue-500"
+                          }`} />
+                          <p className={`text-sm ${
+                            w.level === "danger" ? "text-red-700" :
+                            w.level === "warning" ? "text-amber-700" : "text-blue-700"
+                          }`}>{w.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {predict.trends?.lateRates?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Kechikish trend (3 oy)</p>
+                      <div className="flex gap-3">
+                        {predict.trends.lateRates.map((lr: any, i: number) => (
+                          <div key={i} className="flex-1 bg-slate-50 rounded-lg p-3 text-center border border-border">
+                            <p className="text-lg font-bold text-foreground">{lr.rate}%</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{lr.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
           </>
         )}

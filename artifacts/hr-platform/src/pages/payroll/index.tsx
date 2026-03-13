@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAppStore } from "@/store/use-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Calculator, CheckCircle2, Banknote, Clock, CircleDollarSign, Users,
-  CheckCheck, Download, Package, TrendingUp, Minus
+  CheckCheck, Download, Package, TrendingUp, Minus, Printer
 } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
@@ -140,6 +140,56 @@ export default function Payroll() {
   const isAdmin = userRole === "admin";
   const isAccountant = userRole === "accountant" || userRole === "admin";
 
+  const printPayroll = useCallback(() => {
+    const MONTHS_UZ_ARR = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+    const monthName = MONTHS_UZ_ARR[month - 1] || month;
+    const printWin = window.open("", "_blank");
+    if (!printWin) return;
+    const rows = records.map(r => `
+      <tr>
+        <td>${r.employee?.fullName || "—"}</td>
+        <td>${r.employee?.position || "—"}</td>
+        <td>${r.totalDays}</td>
+        <td>${r.totalHours.toFixed(1)}</td>
+        <td>${(r.grossSalary || 0).toLocaleString("uz-UZ")}</td>
+        <td>${(r.bonusAmount || 0).toLocaleString("uz-UZ")}</td>
+        <td>${(r.deductions || 0).toLocaleString("uz-UZ")}</td>
+        <td><strong>${(r.netSalary || r.grossSalary || 0).toLocaleString("uz-UZ")}</strong></td>
+        <td>${r.status === "paid" ? "✓ To'langan" : r.status === "approved" ? "Tasdiqlangan" : "Qoralama"}</td>
+      </tr>
+    `).join("");
+    printWin.document.write(`
+      <!DOCTYPE html><html><head>
+      <meta charset="utf-8">
+      <title>Oylik hisobot — ${monthName} ${year}</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        p.sub { color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background: #f5f5f5; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa; }
+        .total { margin-top: 12px; font-weight: bold; font-size: 14px; }
+        @media print { .no-print { display: none; } }
+      </style>
+      </head><body>
+      <h1>Oylik hisobot — ${monthName} ${year}</h1>
+      <p class="sub">Sana: ${new Date().toLocaleDateString("uz-UZ")} | Jami: ${records.length} xodim</p>
+      <table>
+        <thead><tr>
+          <th>Xodim</th><th>Lavozim</th><th>Kun</th><th>Soat</th>
+          <th>Umumiy</th><th>Bonus</th><th>Ushlab q.</th><th>Toza to'lov</th><th>Holat</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="total">Jami to'lov: ${totalAmount.toLocaleString("uz-UZ")} so'm</p>
+      <script>window.onload = () => { window.print(); }<\/script>
+      </body></html>
+    `);
+    printWin.document.close();
+  }, [records, month, year, totalAmount]);
+
   function openPieces(record: PayrollRecord) {
     setPiecesForm({
       totalPieces: record.totalPieces || 0,
@@ -192,6 +242,12 @@ export default function Payroll() {
               <Button variant="outline" className="rounded-xl gap-2" onClick={() => navigate("/export")}>
                 <Download className="w-4 h-4" />
                 Eksport
+              </Button>
+            )}
+            {records.length > 0 && (
+              <Button variant="outline" className="rounded-xl gap-2" onClick={printPayroll}>
+                <Printer className="w-4 h-4" />
+                PDF
               </Button>
             )}
           </div>

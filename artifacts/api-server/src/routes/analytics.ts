@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, employeesTable, attendanceTable, payrollTable, leaveRequestsTable, advanceRequestsTable, companiesTable, departmentsTable } from "@workspace/db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, gte, lte } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -267,6 +267,104 @@ router.get("/overview", requireAuth, async (req, res) => {
       trend: last7,
       hrRisks,
       hiringRecommendations,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/predict", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const now = new Date();
+
+    const prevMonths = [1, 2, 3].map(n => {
+      const d = new Date(now.getFullYear(), now.getMonth() - n, 1);
+      return { month: d.getMonth() + 1, year: d.getFullYear() };
+    });
+
+    const monthlyData = await Promise.all(prevMonths.map(async ({ month, year }) => {
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0, 23, 59, 59);
+
+      const [att] = await db.select({
+        totalDays: sql<number>`count(*)::int`,
+        lateDays: sql<number>`sum(case when ${attendanceTable.lateMinutes} > 0 then 1 else 0 end)::int`,
+        totalHours: sql<number>`coalesce(sum(${attendanceTable.workHours}::numeric), 0)`,
+      }).from(attendanceTable).where(
+        and(
+          eq(attendanceTable.companyId, companyId),
+          gte(attendanceTable.createdAt, firstDay),
+          lte(attendanceTable.createdAt, lastDay),
+        )
+      );
+
+      return { month, year, ...att };
+    }));
+
+    const avgDays = monthlyData.reduce((s, m) => s + (m.totalDays || 0), 0) / 3;
+    const avgLate = monthlyData.reduce((s, m) => s + (m.lateDays || 0), 0) / 3;
+    const avgHours = monthlyData.reduce((s, m) => s + parseFloat(String(m.totalHours || 0)), 0) / 3;
+    const avgLateRate = avgDays > 0 ? (avgLate / avgDays) * 100 : 0;
+
+    const employees = await db.select().from(employeesTable).where(
+      and(eq(employeesTable.companyId, companyId), eq(employeesTable.status, "active"))
+    );
+    const totalEmp = employees.length;
+
+    const daysInNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
+    const workDays = Math.round(daysInNextMonth * 5 / 7);
+
+    const predictedAttendancePct = Math.max(60, Math.min(100, 100 - avgLateRate * 0.3));
+    const predictedPresentDays = Math.round((predictedAttendancePct / 100) * totalEmp * workDays);
+
+    const payrollEstimates = employees.map(e => {
+      let base = 0;
+      if (e.salaryType === "monthly") base = parseFloat(String(e.monthlySalary || 0));
+      else if (e.salaryType === "hourly") base = parseFloat(String(e.hourlyRate || 0)) * (avgHours / Math.max(1, totalEmp));
+      else if (e.salaryType === "daily") base = parseFloat(String(e.dailyRate || 0)) * workDays;
+      return base;
+    });
+    const predictedPayroll = payrollEstimates.reduce((s, v) => s + v, 0);
+
+    const lateRateTrend = monthlyData.map((m, i) => ({
+      label: `${i + 1} oy oldin`,
+      rate: m.totalDays > 0 ? ((m.lateDays || 0) / m.totalDays * 100).toFixed(1) : "0",
+    }));
+
+    const predictedLateRate = (parseFloat(lateRateTrend[0]?.rate || "0") * 0.4 +
+      parseFloat(lateRateTrend[1]?.rate || "0") * 0.35 +
+      parseFloat(lateRateTrend[2]?.rate || "0") * 0.25);
+
+    const nextMonthName = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      .toLocaleDateString("uz-UZ", { month: "long", year: "numeric" });
+
+    return res.json({
+      period: { nextMonth: nextMonthName, workDays },
+      attendance: {
+        predictedPresentDays,
+        predictedAttendancePct: predictedAttendancePct.toFixed(1),
+        predictedLateRate: predictedLateRate.toFixed(1),
+        avgPast3Months: avgDays.toFixed(0),
+      },
+      payroll: {
+        predictedTotal: Math.round(predictedPayroll),
+        perEmployee: totalEmp > 0 ? Math.round(predictedPayroll / totalEmp) : 0,
+        currency: "so'm",
+      },
+      trends: {
+        lateRates: lateRateTrend,
+        hoursPerMonth: monthlyData.map((m, i) => ({
+          label: `${i + 1} oy oldin`,
+          hours: parseFloat(String(m.totalHours || 0)).toFixed(1),
+        })),
+      },
+      warnings: [
+        ...(predictedLateRate > 20 ? [{ type: "high_late_rate", message: `Keyingi oyda kechikish darajasi ${predictedLateRate.toFixed(1)}% bo'lishi kutilmoqda`, level: "danger" }] : []),
+        ...(predictedLateRate > 10 && predictedLateRate <= 20 ? [{ type: "medium_late_rate", message: `Kechikish darajasi o'rtacha: ${predictedLateRate.toFixed(1)}%`, level: "warning" }] : []),
+        ...(predictedPayroll > 0 ? [{ type: "payroll_forecast", message: `Taxminiy maosh fondi: ${Math.round(predictedPayroll).toLocaleString("uz-UZ")} so'm`, level: "info" }] : []),
+      ],
     });
   } catch (err) {
     console.error(err);

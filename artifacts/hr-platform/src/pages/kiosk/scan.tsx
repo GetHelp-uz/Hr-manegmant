@@ -6,6 +6,7 @@ import type { KioskConfig } from "./login";
 import * as faceapi from "face-api.js";
 import { loadFaceModels, buildFaceMatcher, DETECTOR_OPTIONS } from "@/lib/face-recognition";
 import type { FaceEntry } from "@/lib/face-recognition";
+import { queueScan, getPendingScans, markSynced, getPendingCount } from "@/lib/kiosk-offline-db";
 
 const KIOSK_STORAGE_KEY = "hr_kiosk_config";
 
@@ -34,6 +35,7 @@ export default function KioskScan() {
   const [todayCount, setTodayCount] = useState(0);
   const [lastEvent, setLastEvent] = useState<{ name: string; action: string; time: string } | null>(null);
   const [networkOk, setNetworkOk] = useState(true);
+  const [pendingSync, setPendingSync] = useState(0);
 
   const [kioskMode, setKioskMode] = useState<KioskMode>("qr");
   const [faceModelsLoaded, setFaceModelsLoaded] = useState(false);
@@ -300,6 +302,24 @@ export default function KioskScan() {
     }
   }, [stopQrScanner]);
 
+  const syncPendingScans = useCallback(async () => {
+    const pending = await getPendingScans();
+    if (pending.length === 0) return;
+    let synced = 0;
+    for (const scan of pending) {
+      try {
+        await apiClient.post("/api/attendance/scan", {
+          qrData: scan.qrData, deviceId: null, photo: scan.photo,
+        });
+        await markSynced(scan.id!);
+        synced++;
+      } catch {}
+    }
+    if (synced > 0) {
+      setPendingSync(await getPendingCount());
+    }
+  }, []);
+
   const submitAttendance = useCallback(async (qrData: string, photo: string | null) => {
     setPhase("submitting");
     const cfg = configRef.current;
@@ -319,19 +339,40 @@ export default function KioskScan() {
       setLastEvent({ name: result.employee?.fullName || "?", action: actionTxt, time: fmt(new Date()) });
       setTodayCount((c) => c + 1);
       setNetworkOk(true);
+      syncPendingScans();
       setPhase("success");
     } catch (err: any) {
-      setResultIsSuccess(false);
-      setResultMsg(err?.message || "Xatolik yuz berdi");
-      setResultSub("QR kodni qayta skaner qiling");
-      setNetworkOk(false);
-      setPhase("error");
+      if (!navigator.onLine) {
+        try {
+          const parsed = typeof qrData === "string" ? JSON.parse(qrData) : qrData;
+          await queueScan({ qrData, companyId: parsed.company_id || cfg?.companyId || 0, photo, timestamp: Date.now() });
+          const count = await getPendingCount();
+          setPendingSync(count);
+          setResultIsSuccess(false);
+          setResultMsg("Oflayn rejim — saqlandi");
+          setResultSub(`${count} ta skan sinxronizatsiya kutmoqda`);
+          setNetworkOk(false);
+          setPhase("error");
+        } catch {
+          setResultIsSuccess(false);
+          setResultMsg("Saqlashda xatolik");
+          setResultSub("QR kodni qayta skaner qiling");
+          setNetworkOk(false);
+          setPhase("error");
+        }
+      } else {
+        setResultIsSuccess(false);
+        setResultMsg(err?.message || "Xatolik yuz berdi");
+        setResultSub("QR kodni qayta skaner qiling");
+        setNetworkOk(false);
+        setPhase("error");
+      }
     }
     setTimeout(async () => {
       stopSelfieStream();
       await startScanner();
     }, 4000);
-  }, [stopSelfieStream, startScanner]);
+  }, [stopSelfieStream, startScanner, syncPendingScans]);
 
   const startSelfie = useCallback(async (qrData: string) => {
     setCountdown(3);
@@ -408,11 +449,24 @@ export default function KioskScan() {
       }
 
       await fetchTodayCount();
+      getPendingCount().then(setPendingSync).catch(() => {});
       setPhase("idle");
       setTimeout(() => startScanner(), 300);
     };
 
     initKiosk();
+
+    const handleOnline = () => {
+      setNetworkOk(true);
+      syncPendingScans();
+    };
+    const handleOffline = () => setNetworkOk(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -512,6 +566,11 @@ export default function KioskScan() {
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${networkOk ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
             <span className="text-gray-400 text-xs hidden sm:inline">{networkOk ? "Ulangan" : "Ulanish yo'q"}</span>
+            {pendingSync > 0 && (
+              <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full border border-amber-500/30">
+                {pendingSync} kutmoqda
+              </span>
+            )}
           </div>
           <button onClick={handleExit}
             className="text-gray-600 hover:text-gray-400 text-xs border border-gray-700 hover:border-gray-600 px-3 py-1.5 rounded-lg transition-colors">

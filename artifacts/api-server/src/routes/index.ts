@@ -18,6 +18,9 @@ import platformAdminRouter from "./platform-admin";
 import exportRouter from "./export";
 import analyticsRouter from "./analytics";
 import broadcastingRouter from "./broadcasting";
+import shiftsRouter from "./shifts";
+import meRouter from "./me";
+import auditLogRouter from "./audit-log";
 
 const router: IRouter = Router();
 
@@ -40,5 +43,8 @@ router.use("/platform-admin", platformAdminRouter);
 router.use("/export", exportRouter);
 router.use("/analytics", analyticsRouter);
 router.use("/broadcasting", broadcastingRouter);
+router.use("/shifts", shiftsRouter);
+router.use("/me", meRouter);
+router.use("/audit-log", auditLogRouter);
 
 export default router;

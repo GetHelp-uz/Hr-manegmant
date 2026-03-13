@@ -3,6 +3,7 @@ import { db, attendanceTable, employeesTable, companiesTable } from "@workspace/
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { sendTelegramMessage, sendTelegramPhoto } from "../lib/telegram-bot";
+import { broadcastAttendance, subscribeCompany } from "../lib/sse-broadcast";
 
 function calcLateMinutes(checkIn: Date, workStartTime: string, thresholdMinutes: number): number {
   const [h, m] = workStartTime.split(":").map(Number);
@@ -70,13 +71,15 @@ router.post("/scan", async (req, res) => {
         await sendTelegramPhoto(company.telegramAdminId, photo, caption).catch(() => {});
       }
 
-      return res.json({
+      const checkInResult = {
         action: "check_in",
         employee: formatEmployee(employee),
         attendance: formatAttendance(newRecord, employee),
         message: `${employee.fullName} checked in at ${formatTime(now)}${lateMinutes > 0 ? ` (${lateMinutes} min late)` : ""}`,
         lateMinutes,
-      });
+      };
+      broadcastAttendance(company_id, checkInResult);
+      return res.json(checkInResult);
     } else if (!todayRecord.checkOut) {
       const checkInTime = todayRecord.checkIn ? new Date(todayRecord.checkIn) : now;
       const workHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
@@ -99,12 +102,14 @@ router.post("/scan", async (req, res) => {
         await sendTelegramPhoto(company.telegramAdminId, photo, caption).catch(() => {});
       }
 
-      return res.json({
+      const checkOutResult = {
         action: "check_out",
         employee: formatEmployee(employee),
         attendance: formatAttendance(updated, employee),
         message: `${employee.fullName} checked out at ${formatTime(now)}. Worked ${workHours.toFixed(1)} hours`,
-      });
+      };
+      broadcastAttendance(company_id, checkOutResult);
+      return res.json(checkOutResult);
     } else {
       return res.json({
         action: "already_checked_out",
@@ -184,6 +189,32 @@ router.post("/face-scan", async (req, res) => {
     console.error(err);
     return res.status(500).json({ error: "server_error", message: "Ichki server xatosi" });
   }
+});
+
+router.get("/stream", requireAuth, (req, res) => {
+  const companyId = (req.session as any).companyId;
+  if (!companyId) { res.status(401).end(); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  res.write(`: connected\n\n`);
+
+  const heartbeat = setInterval(() => {
+    res.write(`event: ping\ndata: ${Date.now()}\n\n`);
+  }, 25000);
+
+  const unsub = subscribeCompany(companyId, (evt) => {
+    res.write(`event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`);
+  });
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsub();
+  });
 });
 
 router.get("/today", requireAuth, async (req, res) => {

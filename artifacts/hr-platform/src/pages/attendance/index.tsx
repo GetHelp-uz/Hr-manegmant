@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { User, LogIn, LogOut, AlertTriangle, Search, Camera, ExternalLink } from "lucide-react";
+import { User, LogIn, LogOut, AlertTriangle, Search, Camera, ExternalLink, Wifi } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAttendanceStream } from "@/hooks/use-attendance-stream";
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   present: { label: "Keldi", color: "bg-green-500/10 text-green-600" },
@@ -25,6 +26,8 @@ export default function Attendance() {
   });
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().split("T")[0]);
   const [selectedPhoto, setSelectedPhoto] = useState<{ src: string; name: string; time: string } | null>(null);
+
+  useAttendanceStream();
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/attendance", dateFrom, dateTo],
@@ -43,7 +46,12 @@ export default function Attendance() {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-display font-bold">Davomat</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-display font-bold">Davomat</h1>
+              <span className="flex items-center gap-1 text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-0.5 rounded-full">
+                <Wifi className="w-3 h-3" /> Live
+              </span>
+            </div>
             <p className="text-muted-foreground text-sm">Xodimlar keldi/ketdi jurnali • {withSelfie > 0 && `${withSelfie} ta rasm mavjud`}</p>
           </div>
           <Button
