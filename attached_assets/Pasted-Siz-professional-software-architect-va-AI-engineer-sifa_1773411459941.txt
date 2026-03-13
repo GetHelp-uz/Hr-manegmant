@@ -1,0 +1,140 @@
+Siz professional software architect va AI engineer sifatida ishlaysiz.
+
+Menga kompaniyalar uchun cloud asosidagi SaaS HR platforma yarating. Tizim xodimlar davomatini Face Recognition orqali aniqlaydi va kuchli HR analytics beradi.
+
+Platforma multi-company bo‘lishi kerak, ya’ni 1000+ kompaniya foydalanishi mumkin.
+
+Tizim quyidagi modullardan iborat bo‘lsin:
+
+1. COMPANY MANAGEMENT
+- har bir kompaniya ro‘yxatdan o‘tadi
+- kompaniya admin paneli bo‘ladi
+- kompaniya o‘z xodimlarini qo‘shadi
+- bo‘limlar va lavozimlar yaratadi
+
+2. EMPLOYEE MANAGEMENT
+- xodim qo‘shish
+- ism
+- telefon
+- lavozim
+- bo‘lim
+- ish grafigi
+- xodim yuz rasmini yuklash
+
+3. FACE RECOGNITION SYSTEM
+
+Xodim ro‘yxatdan o‘tganda:
+
+- kamera orqali 3-5 ta yuz rasmi olinadi
+- AI yuzni aniqlaydi
+- face embedding yaratadi
+- embedding database ga saqlanadi
+
+Check-in jarayoni:
+
+- planshet kamera yuzni aniqlaydi
+- face detection ishlaydi
+- embedding yaratiladi
+- database bilan solishtiriladi
+- agar moslik >90% bo‘lsa xodim aniqlanadi
+- attendance yoziladi
+
+Attendance yozuvi:
+
+Employee name
+Check-in time
+Check-out time
+Device
+Location
+
+4. LIVENESS DETECTION
+
+Tizim quyidagilarni tekshiradi:
+
+- bu haqiqiy odammi
+- rasm yoki video emasmi
+
+Tekshiruvlar:
+
+- ko‘z harakati
+- bosh harakati
+- 3D face depth
+
+5. CAMERA TERMINAL MODE
+
+Planshet yoki kamera terminal sifatida ishlaydi.
+
+Ekranda:
+
+- kamera preview
+- aniqlangan xodim rasmi
+- ism
+- check-in tasdiq
+
+6. HR ANALYTICS DASHBOARD
+
+Admin quyidagilarni ko‘ra oladi:
+
+- bugungi kelgan xodimlar
+- kechikgan xodimlar
+- kelmagan xodimlar
+- ishlangan soatlar
+- overtime
+
+Grafiklar:
+
+- daily attendance
+- weekly attendance
+- department productivity
+- late arrival statistics
+
+7. AI ATTENDANCE ANALYTICS
+
+AI quyidagilarni aniqlaydi:
+
+- qaysi xodim ko‘p kechikmoqda
+- eng samarali xodimlar
+- qaysi bo‘lim samarali
+- qaysi kunlar ish kam
+
+AI avtomatik HR report yaratadi.
+
+8. TELEGRAM BOT INTEGRATION
+
+Xodimga Telegram orqali xabar yuboriladi:
+
+- ishga kelgan vaqt
+- ishdan ketgan vaqt
+- kunlik ish soati
+
+9. MULTI LANGUAGE
+
+Tizim quyidagi tillarda ishlaydi:
+
+- Uzbek
+- Russian
+- English
+
+10. CLOUD SAAS ARCHITECTURE
+
+Platforma quyidagilar bilan qurilsin:
+
+Frontend:
+React yoki Next.js
+
+Backend:
+Node.js yoki Python FastAPI
+
+AI Face Recognition:
+DeepFace yoki FaceNet
+
+Database:
+PostgreSQL
+
+Storage:
+Cloud storage
+
+Deployment:
+Docker + cloud server
+
+Tizim yuqori tezlikda ishlashi va 1000+ kompaniyani qo‘llab-quvvatlashi kerak.

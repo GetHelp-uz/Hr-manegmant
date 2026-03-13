@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, boolean, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, boolean, integer, jsonb, timestamp, numeric } from "drizzle-orm/pg-core";
 import { companiesTable } from "./companies";
 
 export const platformAiSettingsTable = pgTable("platform_ai_settings", {
@@ -62,6 +62,42 @@ export const platformSmsSettingsTable = pgTable("platform_sms_settings", {
   enabled: boolean("enabled").default(false),
   testMode: boolean("test_mode").default(true),
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const platformFaceSettingsTable = pgTable("platform_face_settings", {
+  id: serial("id").primaryKey(),
+  provider: varchar("provider", { length: 50 }).default("browser"),
+  apiUrl: text("api_url"),
+  apiKey: text("api_key"),
+  apiKeyHint: varchar("api_key_hint", { length: 30 }),
+  model: varchar("model", { length: 100 }).default("VGG-Face"),
+  threshold: numeric("threshold", { precision: 4, scale: 2 }).default("0.60"),
+  enabled: boolean("enabled").default(false),
+  livenessEnabled: boolean("liveness_enabled").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const platformPlansTable = pgTable("platform_plans", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  nameUz: varchar("name_uz", { length: 100 }),
+  price: integer("price").default(0),
+  maxEmployees: integer("max_employees").default(10),
+  maxDevices: integer("max_devices").default(1),
+  hasQr: boolean("has_qr").default(true),
+  hasFace: boolean("has_face").default(false),
+  hasAi: boolean("has_ai").default(false),
+  hasDeepFace: boolean("has_deep_face").default(false),
+  hasBroadcasting: boolean("has_broadcasting").default(false),
+  hasAdvancedReports: boolean("has_advanced_reports").default(false),
+  hasApiAccess: boolean("has_api_access").default(false),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -14,6 +14,7 @@ import {
   TrendingUp, Clock, Globe, Phone, Mail, UserCheck, Plus, X, Lock,
   ToggleLeft, ToggleRight, Megaphone, ClipboardList, Eye, AlertCircle,
   CheckCircle, Ban, BarChart3, FileText, Send, History, Brain, Smartphone,
+  ScanFace, Package,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -556,6 +557,18 @@ export default function PlatformAdminDashboard() {
             <Button variant="ghost" size="sm" className="text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 gap-2 rounded-xl h-8 px-3">
               <Brain className="w-4 h-4" />
               <span className="hidden sm:inline text-xs">AI</span>
+            </Button>
+          </Link>
+          <Link href="/platform-admin/face-settings">
+            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 gap-2 rounded-xl h-8 px-3">
+              <ScanFace className="w-4 h-4" />
+              <span className="hidden sm:inline text-xs">Yuz</span>
+            </Button>
+          </Link>
+          <Link href="/platform-admin/plans">
+            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 gap-2 rounded-xl h-8 px-3">
+              <Package className="w-4 h-4" />
+              <span className="hidden sm:inline text-xs">Tariflar</span>
             </Button>
           </Link>
           <Link href="/platform-admin/system">

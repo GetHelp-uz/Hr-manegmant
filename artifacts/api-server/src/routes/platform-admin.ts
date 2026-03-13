@@ -780,4 +780,173 @@ router.post("/sms-test", requirePlatformAuth, async (req, res) => {
   }
 });
 
+// ─── FACE RECOGNITION SETTINGS ───────────────────────────────────────────────
+
+router.get("/face-settings", requirePlatformAuth, async (req, res) => {
+  try {
+    const rows = await db.execute(sql`SELECT id, provider, api_url, api_key_hint, model, threshold, enabled, liveness_enabled, notes, created_at, updated_at FROM platform_face_settings ORDER BY id DESC LIMIT 1`);
+    const settings = (rows as any).rows?.[0] || null;
+    return res.json({ settings });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.post("/face-settings", requirePlatformAuth, async (req, res) => {
+  try {
+    const { provider, apiUrl, apiKey, model, threshold, enabled, livenessEnabled, notes } = req.body;
+
+    const apiKeyHint = apiKey ? (apiKey.substring(0, 8) + "•".repeat(Math.min(8, apiKey.length - 8))) : null;
+
+    const existing = await db.execute(sql`SELECT id FROM platform_face_settings LIMIT 1`);
+    const existingRow = (existing as any).rows?.[0];
+
+    if (existingRow) {
+      const updates: any = { provider, model, threshold: threshold || 0.6, enabled: !!enabled, liveness_enabled: !!livenessEnabled, notes, updated_at: new Date() };
+      if (apiUrl !== undefined) updates.api_url = apiUrl;
+      if (apiKey) { updates.api_key = apiKey; updates.api_key_hint = apiKeyHint; }
+
+      await db.execute(sql`UPDATE platform_face_settings SET
+        provider = ${provider}, api_url = ${apiUrl || null}, model = ${model || "VGG-Face"},
+        threshold = ${threshold || 0.6}, enabled = ${!!enabled}, liveness_enabled = ${!!livenessEnabled},
+        notes = ${notes || null}, updated_at = NOW()
+        ${apiKey ? sql`, api_key = ${apiKey}, api_key_hint = ${apiKeyHint}` : sql``}
+        WHERE id = ${existingRow.id}`);
+    } else {
+      await db.execute(sql`INSERT INTO platform_face_settings (provider, api_url, api_key, api_key_hint, model, threshold, enabled, liveness_enabled, notes)
+        VALUES (${provider || "browser"}, ${apiUrl || null}, ${apiKey || null}, ${apiKeyHint}, ${model || "VGG-Face"}, ${threshold || 0.6}, ${!!enabled}, ${!!livenessEnabled}, ${notes || null})`);
+    }
+
+    logAction(PLATFORM_LOGIN, "face_settings_updated", "face_settings", null, { provider }).catch(() => {});
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Face settings save error:", err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.post("/face-verify", async (req, res) => {
+  try {
+    const { img1Base64, img2Base64, threshold } = req.body;
+    if (!img1Base64 || !img2Base64) return res.status(400).json({ error: "img1Base64 va img2Base64 kerak" });
+
+    const settingsRows = await db.execute(sql`SELECT * FROM platform_face_settings WHERE enabled = true LIMIT 1`);
+    const settings = (settingsRows as any).rows?.[0];
+
+    if (!settings || settings.provider === "browser") {
+      return res.json({ provider: "browser", message: "Server-side yuz tanish o'chirilgan. Browser'da face-api.js ishlatiladi.", browserMode: true });
+    }
+
+    if (settings.provider === "deepface" && settings.api_url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(`${settings.api_url}/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(settings.api_key ? { "Authorization": `Bearer ${settings.api_key}` } : {}) },
+          body: JSON.stringify({ img1_path: img1Base64, img2_path: img2Base64, model_name: settings.model || "VGG-Face", detector_backend: "retinaface" }),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        const result = await response.json();
+        return res.json({ provider: "deepface", verified: result.verified, distance: result.distance, threshold: result.threshold || threshold || 0.6, model: result.model });
+      } catch (fetchErr: any) {
+        clearTimeout(timer);
+        return res.json({ provider: "deepface", error: "DeepFace serveriga ulanib bo'lmadi", details: fetchErr.message, browserMode: true });
+      }
+    }
+
+    if (settings.provider === "aws" && settings.api_url) {
+      return res.json({ provider: "aws", message: "AWS Rekognition integratsiyasi sozlamalar orqali ulaning", browserMode: false });
+    }
+
+    return res.json({ provider: settings.provider, browserMode: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/face-settings/public", async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`SELECT provider, model, threshold, enabled, liveness_enabled FROM platform_face_settings WHERE enabled = true LIMIT 1`);
+    const s = (rows as any).rows?.[0];
+    return res.json({ provider: s?.provider || "browser", model: s?.model || "VGG-Face", threshold: parseFloat(s?.threshold || "0.6"), enabled: s?.enabled || false, livenessEnabled: s?.liveness_enabled || false });
+  } catch {
+    return res.json({ provider: "browser", threshold: 0.6, enabled: false, livenessEnabled: false });
+  }
+});
+
+// ─── PLAN MANAGEMENT ─────────────────────────────────────────────────────────
+
+const DEFAULT_PLANS = [
+  { key: "free", name: "Free", name_uz: "Bepul", price: 0, max_employees: 10, max_devices: 1, has_qr: true, has_face: false, has_ai: false, has_deep_face: false, has_broadcasting: false, has_advanced_reports: false, has_api_access: false, sort_order: 0 },
+  { key: "starter", name: "Starter", name_uz: "Boshlang'ich", price: 99000, max_employees: 50, max_devices: 2, has_qr: true, has_face: true, has_ai: false, has_deep_face: false, has_broadcasting: false, has_advanced_reports: false, has_api_access: false, sort_order: 1 },
+  { key: "pro", name: "Professional", name_uz: "Professional", price: 299000, max_employees: 200, max_devices: 5, has_qr: true, has_face: true, has_ai: true, has_deep_face: false, has_broadcasting: true, has_advanced_reports: true, has_api_access: false, sort_order: 2 },
+  { key: "enterprise", name: "Enterprise", name_uz: "Korporativ", price: 0, max_employees: -1, max_devices: -1, has_qr: true, has_face: true, has_ai: true, has_deep_face: true, has_broadcasting: true, has_advanced_reports: true, has_api_access: true, sort_order: 3 },
+];
+
+router.get("/plans", requirePlatformAuth, async (req, res) => {
+  try {
+    const rows = await db.execute(sql`SELECT * FROM platform_plans ORDER BY sort_order ASC`);
+    let plans = (rows as any).rows || [];
+    if (plans.length === 0) {
+      plans = DEFAULT_PLANS;
+    }
+    const companyCounts = await db.execute(sql`SELECT subscription_plan as plan, COUNT(*) as cnt FROM companies GROUP BY subscription_plan`);
+    const counts: Record<string, number> = {};
+    ((companyCounts as any).rows || []).forEach((r: any) => { counts[r.plan] = parseInt(r.cnt); });
+    return res.json({ plans: plans.map((p: any) => ({ ...p, companyCount: counts[p.key] || 0 })) });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/plans/public", async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`SELECT key, name, name_uz, price, max_employees, max_devices, has_qr, has_face, has_ai, has_deep_face, has_broadcasting, has_advanced_reports, has_api_access, sort_order FROM platform_plans WHERE is_active = true ORDER BY sort_order ASC`);
+    let plans = (rows as any).rows || [];
+    if (plans.length === 0) plans = DEFAULT_PLANS;
+    return res.json({ plans });
+  } catch {
+    return res.json({ plans: DEFAULT_PLANS });
+  }
+});
+
+router.put("/plans/:key", requirePlatformAuth, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { name, nameUz, price, maxEmployees, maxDevices, hasQr, hasFace, hasAi, hasDeepFace, hasBroadcasting, hasAdvancedReports, hasApiAccess, isActive } = req.body;
+
+    const existing = await db.execute(sql`SELECT id FROM platform_plans WHERE key = ${key}`);
+    const existingRow = (existing as any).rows?.[0];
+
+    if (existingRow) {
+      await db.execute(sql`UPDATE platform_plans SET
+        name = ${name}, name_uz = ${nameUz || null}, price = ${price || 0},
+        max_employees = ${maxEmployees || 10}, max_devices = ${maxDevices || 1},
+        has_qr = ${!!hasQr}, has_face = ${!!hasFace}, has_ai = ${!!hasAi},
+        has_deep_face = ${!!hasDeepFace}, has_broadcasting = ${!!hasBroadcasting},
+        has_advanced_reports = ${!!hasAdvancedReports}, has_api_access = ${!!hasApiAccess},
+        is_active = ${isActive !== false}, updated_at = NOW()
+        WHERE key = ${key}`);
+    } else {
+      const plan = DEFAULT_PLANS.find(p => p.key === key) || DEFAULT_PLANS[0];
+      await db.execute(sql`INSERT INTO platform_plans (key, name, name_uz, price, max_employees, max_devices, has_qr, has_face, has_ai, has_deep_face, has_broadcasting, has_advanced_reports, has_api_access, is_active, sort_order)
+        VALUES (${key}, ${name || plan.name}, ${nameUz || null}, ${price || plan.price},
+          ${maxEmployees || plan.max_employees}, ${maxDevices || plan.max_devices},
+          ${hasQr !== false}, ${!!hasFace}, ${!!hasAi}, ${!!hasDeepFace},
+          ${!!hasBroadcasting}, ${!!hasAdvancedReports}, ${!!hasApiAccess}, true, ${plan.sort_order})`);
+    }
+
+    logAction(PLATFORM_LOGIN, "plan_updated", "plan", null, { key, price }).catch(() => {});
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
 export default router;

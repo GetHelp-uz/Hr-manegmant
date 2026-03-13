@@ -3,10 +3,14 @@ import { useLocation } from "wouter";
 import { Html5Qrcode } from "html5-qrcode";
 import { apiClient } from "@/lib/api-client";
 import type { KioskConfig } from "./login";
+import * as faceapi from "face-api.js";
+import { loadFaceModels, buildFaceMatcher, DETECTOR_OPTIONS } from "@/lib/face-recognition";
+import type { FaceEntry } from "@/lib/face-recognition";
 
 const KIOSK_STORAGE_KEY = "hr_kiosk_config";
 
 type Phase = "loading" | "idle" | "scanning" | "selfie" | "submitting" | "success" | "error";
+type KioskMode = "qr" | "face";
 
 function useClock() {
   const [time, setTime] = useState(() => new Date());
@@ -31,17 +35,30 @@ export default function KioskScan() {
   const [lastEvent, setLastEvent] = useState<{ name: string; action: string; time: string } | null>(null);
   const [networkOk, setNetworkOk] = useState(true);
 
+  const [kioskMode, setKioskMode] = useState<KioskMode>("qr");
+  const [faceModelsLoaded, setFaceModelsLoaded] = useState(false);
+  const [faceEntries, setFaceEntries] = useState<FaceEntry[]>([]);
+  const [faceScanMsg, setFaceScanMsg] = useState("Kameraga qarang...");
+  const [faceDetected, setFaceDetected] = useState(false);
+
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const faceVideoRef = useRef<HTMLVideoElement | null>(null);
+  const faceOverlayRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const faceStreamRef = useRef<MediaStream | null>(null);
+  const faceLoopRef = useRef<any>(null);
+  const faceLockRef = useRef(false);
   const countdownTimerRef = useRef<any>(null);
   const watchdogRef = useRef<any>(null);
   const keepaliveRef = useRef<any>(null);
   const phaseRef = useRef<Phase>("loading");
   const configRef = useRef<KioskConfig | null>(null);
+  const kioskModeRef = useRef<KioskMode>("qr");
   phaseRef.current = phase;
   configRef.current = config;
+  kioskModeRef.current = kioskMode;
 
   const fmt = (d: Date) => d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
   const fmtDate = (d: Date) => d.toLocaleDateString("uz-UZ", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
@@ -61,6 +78,184 @@ export default function KioskScan() {
     }
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
+
+  const stopFaceMode = useCallback(() => {
+    clearInterval(faceLoopRef.current);
+    if (faceStreamRef.current) {
+      faceStreamRef.current.getTracks().forEach(t => t.stop());
+      faceStreamRef.current = null;
+    }
+    if (faceVideoRef.current) faceVideoRef.current.srcObject = null;
+    faceLockRef.current = false;
+    setFaceDetected(false);
+  }, []);
+
+  const submitFaceAttendance = useCallback(async (employeeId: number, photo: string | null) => {
+    if (faceLockRef.current) return;
+    faceLockRef.current = true;
+    setPhase("submitting");
+    const cfg = configRef.current;
+    try {
+      const result: any = await apiClient.post("/api/attendance/face-scan", {
+        employeeId, companyId: cfg?.companyId, photo,
+      });
+      const actionTxt = result.action === "check_in" ? "Keldi ✅" : result.action === "check_out" ? "Ketdi 🏁" : "Qayd etildi";
+      setResultMsg(result.employee?.fullName || "Xodim");
+      setResultSub(`${actionTxt}  •  ${fmt(new Date())}`);
+      setResultIsSuccess(true);
+      setLastEvent({ name: result.employee?.fullName || "?", action: actionTxt, time: fmt(new Date()) });
+      setTodayCount(c => c + 1);
+      setNetworkOk(true);
+      setPhase("success");
+    } catch (err: any) {
+      setResultIsSuccess(false);
+      setResultMsg(err?.message || "Yuz tanib bo'lmadi");
+      setResultSub("Qayta urinib ko'ring");
+      setPhase("error");
+    }
+    setTimeout(() => {
+      faceLockRef.current = false;
+      setPhase("idle");
+      if (kioskModeRef.current === "face") {
+        setFaceScanMsg("Kameraga qarang...");
+        setFaceDetected(false);
+      } else {
+        startScanner();
+      }
+    }, 4000);
+  }, []);
+
+  const startFaceMode = useCallback(async () => {
+    if (!faceModelsLoaded) {
+      setFaceScanMsg("Modellar yuklanmoqda...");
+      await loadFaceModels().catch(() => {});
+      setFaceModelsLoaded(true);
+    }
+
+    stopFaceMode();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      faceStreamRef.current = stream;
+      if (faceVideoRef.current) {
+        faceVideoRef.current.srcObject = stream;
+        await faceVideoRef.current.play().catch(() => {});
+      }
+      setFaceScanMsg("Kameraga qarang...");
+      setFaceDetected(false);
+    } catch {
+      setFaceScanMsg("Kamera ochilmadi");
+      return;
+    }
+
+    const cfg = configRef.current;
+    let entries = faceEntries;
+    if (entries.length === 0 && cfg?.companyId) {
+      try {
+        const result: any = await apiClient.get(`/api/employees/face-descriptors-public/${cfg.companyId}`);
+        entries = result?.data || [];
+        setFaceEntries(entries);
+      } catch {}
+    }
+
+    const matcher = buildFaceMatcher(entries, 0.55);
+
+    faceLoopRef.current = setInterval(async () => {
+      if (faceLockRef.current || phaseRef.current === "submitting" || phaseRef.current === "success" || phaseRef.current === "error") return;
+      const video = faceVideoRef.current;
+      const overlay = faceOverlayRef.current;
+      if (!video || video.readyState < 2 || !overlay) return;
+
+      try {
+        const detections = await faceapi
+          .detectAllFaces(video, DETECTOR_OPTIONS)
+          .withFaceLandmarks(true)
+          .withFaceDescriptors();
+
+        overlay.width = video.videoWidth || 1280;
+        overlay.height = video.videoHeight || 720;
+        const ctx = overlay.getContext("2d");
+        if (!ctx) return;
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+        if (detections.length === 0) {
+          setFaceDetected(false);
+          setFaceScanMsg("Kameraga qarang...");
+          return;
+        }
+
+        if (detections.length > 1) {
+          setFaceDetected(false);
+          setFaceScanMsg(`${detections.length} ta yuz aniqlandi — bittadan keling`);
+          return;
+        }
+
+        const det = detections[0];
+        setFaceDetected(true);
+
+        if (!matcher) {
+          setFaceScanMsg("Yuz ma'lumotlari yo'q — avval ro'yxatdan o'ting");
+          ctx.strokeStyle = "#f59e0b";
+          ctx.lineWidth = 3;
+          const b = det.detection.box;
+          ctx.strokeRect(b.x, b.y, b.width, b.height);
+          return;
+        }
+
+        const match = matcher.findBestMatch(det.descriptor);
+        const box = det.detection.box;
+
+        if (match.label !== "unknown") {
+          const empId = parseInt(match.label);
+          const empEntry = entries.find(e => e.id === empId);
+
+          ctx.strokeStyle = "#10b981";
+          ctx.lineWidth = 4;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+          ctx.fillStyle = "#10b981";
+          ctx.fillRect(box.x, box.y - 36, box.width, 36);
+          ctx.fillStyle = "white";
+          ctx.font = "bold 18px sans-serif";
+          ctx.fillText(empEntry?.fullName || "Xodim", box.x + 8, box.y - 10);
+
+          setFaceScanMsg(`${empEntry?.fullName || "Xodim"} aniqlandi — qayd etilmoqda...`);
+
+          const c = canvasRef.current;
+          let photo: string | null = null;
+          if (c) {
+            c.width = video.videoWidth;
+            c.height = video.videoHeight;
+            const cx = c.getContext("2d");
+            if (cx) { cx.save(); cx.translate(c.width, 0); cx.scale(-1, 1); cx.drawImage(video, 0, 0); cx.restore(); }
+            photo = c.toDataURL("image/jpeg", 0.65);
+          }
+          submitFaceAttendance(empId, photo);
+        } else {
+          ctx.strokeStyle = "#3b82f6";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+          setFaceScanMsg("Yuz aniqlanmadi — ro'yxatdan o'tmagan bo'lishi mumkin");
+        }
+      } catch {}
+    }, 500);
+  }, [faceModelsLoaded, faceEntries, stopFaceMode, submitFaceAttendance]);
+
+  const handleModeSwitch = useCallback(async (mode: KioskMode) => {
+    if (mode === kioskModeRef.current) return;
+    setKioskMode(mode);
+    kioskModeRef.current = mode;
+
+    if (mode === "face") {
+      await stopQrScanner();
+      setPhase("idle");
+      await startFaceMode();
+    } else {
+      stopFaceMode();
+      await startScanner();
+    }
+  }, [stopQrScanner, startFaceMode, stopFaceMode]);
 
   const captureSelfie = useCallback((): string | null => {
     if (!videoRef.current || !canvasRef.current) return null;
@@ -271,6 +466,7 @@ export default function KioskScan() {
     return () => {
       stopQrScanner();
       stopSelfieStream();
+      stopFaceMode();
       clearInterval(countdownTimerRef.current);
       clearInterval(watchdogRef.current);
       clearInterval(keepaliveRef.current);
@@ -336,8 +532,37 @@ export default function KioskScan() {
         <div
           id="kiosk-qr-div"
           className="w-full h-full"
-          style={{ display: isScanning ? "block" : "none" }}
+          style={{ display: (isScanning && kioskMode === "qr") ? "block" : "none" }}
         />
+
+        {kioskMode === "face" && !isSubmitting && !isSuccess && !isError && (
+          <div className="absolute inset-0 bg-black">
+            <video
+              ref={faceVideoRef}
+              autoPlay playsInline muted
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ transform: "scaleX(-1)" }}
+            />
+            <canvas
+              ref={faceOverlayRef}
+              className="absolute inset-0 w-full h-full"
+              style={{ transform: "scaleX(-1)" }}
+            />
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
+              <div className={`px-5 py-2.5 rounded-2xl backdrop-blur-md text-sm font-medium transition-colors ${faceDetected ? "bg-emerald-500/80 text-white" : "bg-black/60 text-white/70"}`}>
+                {faceScanMsg}
+              </div>
+            </div>
+            {!faceModelsLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-emerald-600/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-white/70">Yuz tanish modellari yuklanmoqda...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {isSelfie && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black">
@@ -405,14 +630,25 @@ export default function KioskScan() {
       </div>
 
       <div className="shrink-0 bg-gray-900 border-t border-gray-800 px-6 py-3">
-        {isScanning ? (
+        {(isScanning || (kioskMode === "face" && !isSubmitting && !isSuccess && !isError)) ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-emerald-400 font-medium">QR kodni skanerlang</span>
-              <span className="text-gray-600 text-sm hidden sm:inline">— QR kodingizni kameraga tutib turing</span>
+              {kioskMode === "qr" ? (
+                <>
+                  <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-emerald-400 font-medium">QR kodni skanerlang</span>
+                  <span className="text-gray-600 text-sm hidden sm:inline">— QR kodingizni kameraga tutib turing</span>
+                </>
+              ) : (
+                <>
+                  <div className={`w-3 h-3 rounded-full ${faceDetected ? "bg-emerald-500 animate-pulse" : "bg-blue-500 animate-pulse"}`} />
+                  <span className={`font-medium ${faceDetected ? "text-emerald-400" : "text-blue-400"}`}>
+                    Yuz tanish rejimi — kameraga qarang
+                  </span>
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-3 text-sm">
               <div className="text-center">
                 <p className="text-gray-500 text-xs">Bugun</p>
                 <p className="text-white font-bold text-lg leading-none">{todayCount}</p>
@@ -424,6 +660,16 @@ export default function KioskScan() {
                   <p className="text-gray-600 text-xs">{lastEvent.time}</p>
                 </div>
               )}
+              <div className="flex items-center gap-1 bg-gray-800 rounded-xl p-1">
+                <button onClick={() => handleModeSwitch("qr")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${kioskMode === "qr" ? "bg-emerald-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
+                  QR
+                </button>
+                <button onClick={() => handleModeSwitch("face")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${kioskMode === "face" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
+                  Yuz
+                </button>
+              </div>
             </div>
           </div>
         ) : isSelfie ? (

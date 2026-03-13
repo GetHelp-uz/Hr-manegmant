@@ -40,7 +40,7 @@ export default function Settings() {
   const { data: qrData, isLoading: qrLoading, refetch: refetchQr } = useQuery({ queryKey: ["/api/settings/qr-code"], queryFn: fetchQrCode });
 
   const [companyForm, setCompanyForm] = useState({ name: "", phone: "", logo: "" });
-  const [workForm, setWorkForm] = useState({ workStartTime: "09:00", workEndTime: "18:00", lateThresholdMinutes: "15", telegramAdminId: "" });
+  const [workForm, setWorkForm] = useState({ workStartTime: "09:00", workEndTime: "18:00", lateThresholdMinutes: "15", telegramAdminId: "", attendanceMethod: "qr" });
 
   useEffect(() => {
     if (company) setCompanyForm({ name: company.name, phone: company.phone, logo: company.logo || "" });
@@ -53,6 +53,7 @@ export default function Settings() {
         workEndTime: settings.workEndTime || "18:00",
         lateThresholdMinutes: settings.lateThresholdMinutes || "15",
         telegramAdminId: settings.telegramAdminId || "",
+        attendanceMethod: settings.attendanceMethod || "qr",
       });
     }
   }, [settings]);
@@ -179,6 +180,26 @@ export default function Settings() {
                   <Label className="flex items-center gap-2"><MessageCircle className="w-4 h-4 text-blue-500" /> Admin Telegram ID</Label>
                   <Input value={workForm.telegramAdminId} onChange={e => setWorkForm(p => ({ ...p, telegramAdminId: e.target.value }))} placeholder="123456789 — botdan /start bosib oling" />
                   <p className="text-xs text-muted-foreground">Xodimlar ta'til so'rov yuborganida shu Telegram'ga bildirishnoma boradi</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <span>🎭</span> Davomat usuli
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { key: "qr", icon: "📱", label: "QR Kod", desc: "Faqat QR kod bilan" },
+                      { key: "face", icon: "🎭", label: "Yuz Tanish", desc: "Faqat yuz tanish bilan" },
+                      { key: "both", icon: "🔀", label: "Ikkalasi", desc: "QR va yuz tanish" },
+                    ].map(opt => (
+                      <button key={opt.key} type="button"
+                        onClick={() => setWorkForm(p => ({ ...p, attendanceMethod: opt.key }))}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${workForm.attendanceMethod === opt.key ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                        <div className="text-xl mb-1">{opt.icon}</div>
+                        <p className="text-sm font-semibold">{opt.label}</p>
+                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <Button type="submit" disabled={updateSettingsM.isPending} className="gap-2">
                   <Save className="w-4 h-4" /> Saqlash

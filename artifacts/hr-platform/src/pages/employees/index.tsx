@@ -7,7 +7,8 @@ import { useListEmployees, useCreateEmployee, useDeleteEmployee } from "@workspa
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw, MessageCircle } from "lucide-react";
+import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw, MessageCircle, ScanFace } from "lucide-react";
+import FaceEnrollModal from "@/components/FaceEnrollModal";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ export default function Employees() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [tgQrData, setTgQrData] = useState<{ qrCode: string; deepLink: string } | null>(null);
   const [tgQrLoading, setTgQrLoading] = useState(false);
+  const [faceEnrollEmp, setFaceEnrollEmp] = useState<any | null>(null);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["/api/departments"],
@@ -184,6 +186,7 @@ export default function Employees() {
                   <th className="px-6 py-4">{t('phone')}</th>
                   <th className="px-6 py-4">{t('salary_type')}</th>
                   <th className="px-6 py-4 text-center">QR</th>
+                  <th className="px-6 py-4 text-center">Yuz</th>
                   <th className="px-6 py-4 text-right">{t('actions')}</th>
                 </tr>
               </thead>
@@ -210,11 +213,24 @@ export default function Employees() {
                           <span className="inline-block w-2 h-2 rounded-full bg-red-400" title="QR yo'q" />
                         )}
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        {(emp as any).hasFace ? (
+                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" title="Yuz ro'yxatdan o'tgan" />
+                        ) : (
+                          <span className="inline-block w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" title="Yuz yo'q" />
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg gap-1.5 text-xs" onClick={() => openQr(emp)}>
                             <QrCode className="w-3.5 h-3.5 text-primary" />
                             QR
+                          </Button>
+                          <Button variant="outline" size="sm"
+                            className={`h-8 px-3 rounded-lg gap-1.5 text-xs ${(emp as any).hasFace ? "text-emerald-600 border-emerald-200 hover:bg-emerald-50" : "text-slate-500 hover:text-emerald-600"}`}
+                            onClick={() => setFaceEnrollEmp(emp)}>
+                            <ScanFace className="w-3.5 h-3.5" />
+                            {(emp as any).hasFace ? "Yuz ✓" : "Yuz"}
                           </Button>
                           <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => openTgQr(emp)}>
                             <MessageCircle className="w-3.5 h-3.5" />
@@ -422,6 +438,18 @@ export default function Employees() {
           )}
         </DialogContent>
       </Dialog>
+      {faceEnrollEmp && (
+        <FaceEnrollModal
+          employee={faceEnrollEmp}
+          open={!!faceEnrollEmp}
+          onClose={() => setFaceEnrollEmp(null)}
+          onSuccess={() => {
+            setFaceEnrollEmp(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+            toast({ title: "Yuz ro'yxatdan o'tkazildi!", description: `${faceEnrollEmp?.fullName} uchun yuz muvaffaqiyatli saqlandi.` });
+          }}
+        />
+      )}
     </AppLayout>
   );
 }

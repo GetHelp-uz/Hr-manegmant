@@ -31,6 +31,8 @@ import PlatformAdminCompany from "@/pages/platform-admin/company";
 import PlatformAdminSystem from "@/pages/platform-admin/system";
 import PlatformAdminAiSettings from "@/pages/platform-admin/ai-settings";
 import PlatformAdminSmsSettings from "@/pages/platform-admin/sms-settings";
+import PlatformAdminFaceSettings from "@/pages/platform-admin/face-settings";
+import PlatformAdminPlans from "@/pages/platform-admin/plans";
 import KioskLogin from "@/pages/kiosk/login";
 import KioskScan from "@/pages/kiosk/scan";
 
@@ -66,6 +68,8 @@ function Router() {
       <Route path="/platform-admin/system" component={PlatformAdminSystem} />
       <Route path="/platform-admin/ai-settings" component={PlatformAdminAiSettings} />
       <Route path="/platform-admin/sms-settings" component={PlatformAdminSmsSettings} />
+      <Route path="/platform-admin/face-settings" component={PlatformAdminFaceSettings} />
+      <Route path="/platform-admin/plans" component={PlatformAdminPlans} />
       <Route path="/kiosk" component={KioskLogin} />
       <Route path="/kiosk/scan" component={KioskScan} />
       <Route component={NotFound} />
