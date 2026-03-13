@@ -199,7 +199,8 @@ function formatAttendance(a: any, employee: any) {
     checkIn: a.checkIn, checkOut: a.checkOut,
     workHours: a.workHours ? parseFloat(a.workHours) : null,
     lateMinutes: a.lateMinutes || 0, status: a.status,
-    deviceId: a.deviceId, createdAt: a.createdAt,
+    deviceId: a.deviceId, selfiePhoto: a.selfiePhoto || null,
+    createdAt: a.createdAt,
     employee: employee ? formatEmployee(employee) : null,
   };
 }

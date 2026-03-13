@@ -13,6 +13,7 @@ import {
   Building2,
   CalendarDays,
   HandCoins,
+  MonitorPlay,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
@@ -47,6 +48,7 @@ export function Sidebar() {
     { name: t('attendance'), href: "/attendance", icon: CalendarCheck },
     { name: "Ta'til So'rovlar", href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined },
     { name: "Avans So'rovlar", href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined },
+    { name: "Nazorat Monitor", href: "/monitor", icon: MonitorPlay },
     { name: t('qr_scanner'), href: "/scanner", icon: ScanLine },
     { name: t('devices'), href: "/devices", icon: MonitorSmartphone },
     { name: t('payroll'), href: "/payroll", icon: Banknote },

@@ -19,6 +19,7 @@ import Settings from "@/pages/settings/index";
 import Departments from "@/pages/departments/index";
 import LeaveRequests from "@/pages/leave-requests/index";
 import Advances from "@/pages/advances/index";
+import Monitor from "@/pages/monitor/index";
 import Join from "@/pages/join/index";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/departments" component={Departments} />
       <Route path="/leave-requests" component={LeaveRequests} />
       <Route path="/advances" component={Advances} />
+      <Route path="/monitor" component={Monitor} />
       <Route path="/scanner" component={Scanner} />
       <Route path="/attendance" component={Attendance} />
       <Route path="/devices" component={Devices} />

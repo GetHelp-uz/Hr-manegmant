@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, departmentsTable } from "@workspace/db";
+import { db, employeesTable, departmentsTable, companiesTable } from "@workspace/db";
 import { eq, and, ilike, sql, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { sendTelegramPhoto, sendTelegramMessage } from "../lib/telegram-bot";
 import QRCode from "qrcode";
 
 const router: IRouter = Router();
@@ -66,6 +67,17 @@ router.post("/", requireAuth, async (req, res) => {
       .set({ qrCode })
       .where(eq(employeesTable.id, employee.id))
       .returning();
+
+    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId));
+    if (company?.telegramAdminId && qrCode) {
+      const caption =
+        `👤 <b>Yangi xodim qo'shildi!</b>\n\n` +
+        `📝 Ism: <b>${employee.fullName}</b>\n` +
+        `💼 Lavozim: ${employee.position || "—"}\n` +
+        `📱 Telefon: ${employee.phone}\n\n` +
+        `🔲 Quyidagi QR kodni xodimga bering — davomat skanerlash uchun ishlatadi.`;
+      await sendTelegramPhoto(company.telegramAdminId, qrCode, caption).catch(() => {});
+    }
 
     return res.status(201).json(formatEmployee(updated));
   } catch (err) {
