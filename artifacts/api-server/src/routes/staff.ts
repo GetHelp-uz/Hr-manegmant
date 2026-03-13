@@ -32,8 +32,8 @@ router.post("/", requireAdmin, async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({ error: "validation_error", message: "name, email and password required" });
     }
-    const allowedRoles = ["accountant", "viewer"];
-    const staffRole = allowedRoles.includes(role) ? role : "accountant";
+    const allowedRoles = ["accountant", "viewer", "observer", "hr"];
+    const staffRole = allowedRoles.includes(role) ? role : "viewer";
 
     const [existing] = await db.select().from(adminsTable).where(eq(adminsTable.email, email));
     if (existing) {

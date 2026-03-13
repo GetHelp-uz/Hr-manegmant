@@ -3,7 +3,8 @@ import { useState } from "react";
 import {
   Users, Clock, QrCode, BarChart3, Shield, Globe2, Smartphone, CheckCircle2,
   ArrowRight, Star, Building2, Zap, MessageCircle, ChevronDown, ChevronUp,
-  Play, TrendingUp
+  Play, TrendingUp, Camera, MapPin, BrainCircuit, FileSpreadsheet, Bell,
+  CalendarRange, CreditCard, UserCheck, Lock, Rocket
 } from "lucide-react";
 
 const features = [
@@ -11,10 +12,23 @@ const features = [
   { icon: Users, color: "bg-indigo-500", title: "Xodimlar Boshqaruvi", desc: "Barcha xodimlarni bir joyda boshqaring. Profil, lavozim, maosh va hujjatlarni oson tahrirlang." },
   { icon: BarChart3, color: "bg-violet-500", title: "Real-time Statistika", desc: "Bugungi davomat, kechikishlar, umumiy ko'rsatkichlar — hammasi real vaqtda." },
   { icon: MessageCircle, color: "bg-green-500", title: "Telegram Bot", desc: "Xodimlar Telegram orqali o'z davomati, maoshi va tarixini ko'rishlari mumkin." },
-  { icon: TrendingUp, color: "bg-orange-500", title: "Maosh Hisoblash", desc: "Soatlik va oylik maoshni avtomatik hisoblang. Oylik hisobot bir tugma bilan." },
+  { icon: TrendingUp, color: "bg-orange-500", title: "Maosh Hisoblash", desc: "Soatlik va oylik maoshni avtomatik hisoblang. Buxgalter tasdiqlash jarayoni bilan." },
   { icon: Shield, color: "bg-rose-500", title: "Multi-Tenant Xavfsizlik", desc: "Har bir kompaniya izolyatsiyalangan. Ma'lumotlaringiz 100% himoyalangan." },
-  { icon: Globe2, color: "bg-cyan-500", title: "Ko'p Tillar", desc: "O'zbek, Rus va Ingliz tillarida to'liq ishlaydi. Interfeys tilni avtomatik saqlaydi." },
+  { icon: Camera, color: "bg-pink-500", title: "Selfie Tasdiqlash", desc: "Davomat vaqtida xodim selfie oladi — kimligini tasdiqlash uchun foto saqlanadi." },
   { icon: Smartphone, color: "bg-teal-500", title: "Planshet Skaner", desc: "Ofis kirishiga planshet o'rnating — xodimlar QR kodni ko'rsatadilar, tizim avtomatik qayd etadi." },
+  { icon: CalendarRange, color: "bg-cyan-500", title: "Ta'til Boshqaruvi", desc: "Xodimlar ta'til so'rovini yuboradilar, admin tasdiqlaydi. Qolgan kunlar avtomatik hisoblanadi." },
+  { icon: CreditCard, color: "bg-emerald-500", title: "Avans Tizimi", desc: "Xodimlar avans so'rovini yuboradilar. Admin tasdiqlaydi va avans hisobga olinadi." },
+  { icon: UserCheck, color: "bg-amber-500", title: "Ko'p Rollar", desc: "Admin, HR xodim, buxgalter, nazoratchi, ko'ruvchi — har biri o'z huquqiga ega." },
+  { icon: Globe2, color: "bg-blue-600", title: "Ko'p Tillar", desc: "O'zbek, Rus va Ingliz tillarida to'liq ishlaydi. Interfeys tilni avtomatik saqlaydi." },
+];
+
+const upcomingFeatures = [
+  { icon: MapPin, color: "text-blue-400", title: "GPS Joylashuv", desc: "Xodim skanerlashda GPS koordinatalar saqlanadi. Ofisdan tashqarida skanerlash aniqlanadi." },
+  { icon: BrainCircuit, color: "text-violet-400", title: "AI Tahlil", desc: "Sun'iy intellekt yordamida davomat naqshlari tahlili, kechikish bashorati va tavsiyalar." },
+  { icon: Bell, color: "text-orange-400", title: "Push Bildirishnomalar", desc: "Kechikuvchi xodimlar haqida SMS va Telegram xabarlar. Real vaqt ogohlantirishlari." },
+  { icon: FileSpreadsheet, color: "text-green-400", title: "Excel/PDF Eksport", desc: "Davomat va maosh hisobotlarini Excel yoki PDF ko'rinishida yuklab oling." },
+  { icon: Lock, color: "text-rose-400", title: "Yuz Tanish", desc: "QR kod o'rniga yuz tanish texnologiyasi bilan davomat. (Beta versiyada)" },
+  { icon: Rocket, color: "text-cyan-400", title: "API Integratsiya", desc: "1C, boshqa tizimlar bilan integratsiya uchun to'liq REST API va webhook qo'llab-quvvatlash." },
 ];
 
 const steps = [
@@ -270,8 +284,39 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* UPCOMING FEATURES */}
       <section className="py-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-4 py-2 text-violet-300 text-sm mb-4">
+              <Rocket className="w-3.5 h-3.5" />
+              <span>Tez orada</span>
+            </div>
+            <h2 className="text-4xl font-black mb-4">Kelgusi <span className="text-violet-400">Yangiliklar</span></h2>
+            <p className="text-gray-400 text-lg max-w-xl mx-auto">Platformamizni yanada kuchliroq qilish uchun ishlamoqdamiz</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {upcomingFeatures.map((f, i) => (
+              <div key={i} className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/30 rounded-2xl p-6 transition-all duration-300 overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:bg-violet-500/10 transition-all" />
+                <div className="relative">
+                  <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <f.icon className={`w-6 h-6 ${f.color}`} />
+                  </div>
+                  <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                    {f.title}
+                    <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Beta</span>
+                  </h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="py-20 px-6 bg-white/[0.02]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-black mb-4">Qanday <span className="text-blue-400">Ishlaydi?</span></h2>

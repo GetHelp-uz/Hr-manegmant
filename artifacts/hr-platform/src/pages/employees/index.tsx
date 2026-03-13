@@ -14,8 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiClient } from "@/lib/api-client";
 
 export default function Employees() {
-  const { language } = useAppStore();
+  const { language, userRole } = useAppStore();
   const t = useTranslation(language);
+  const isHrOnly = userRole === "hr";
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
@@ -188,13 +189,15 @@ export default function Employees() {
                             <QrCode className="w-3.5 h-3.5 text-primary" />
                             QR
                           </Button>
-                          <Button
-                            variant="outline" size="sm"
-                            className="h-8 w-8 p-0 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive border-transparent hover:border-destructive/20"
-                            onClick={() => { if (confirm('O\'chirishni tasdiqlaysizmi?')) deleteMutation.mutate({ id: emp.id }); }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {!isHrOnly && (
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-8 w-8 p-0 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive border-transparent hover:border-destructive/20"
+                              onClick={() => { if (confirm('O\'chirishni tasdiqlaysizmi?')) deleteMutation.mutate({ id: emp.id }); }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

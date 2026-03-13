@@ -29,3 +29,14 @@ export function requireAccountant(req: Request, res: Response, next: NextFunctio
   }
   next();
 }
+
+export function requireHr(req: Request, res: Response, next: NextFunction) {
+  const session = (req as any).session;
+  if (!session?.adminId) {
+    return res.status(401).json({ error: "unauthorized", message: "Authentication required" });
+  }
+  if (session.role !== "hr" && session.role !== "admin") {
+    return res.status(403).json({ error: "forbidden", message: "HR or Admin role required" });
+  }
+  next();
+}
