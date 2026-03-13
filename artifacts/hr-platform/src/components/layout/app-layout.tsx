@@ -36,13 +36,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <Sidebar />
       <Header />
-      <main 
+      <main
         className={`
-          flex-1 mt-16 p-4 md:p-8 transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'ml-64' : 'ml-20'}
+          flex-1 mt-[60px] p-5 md:p-8 transition-all duration-300 ease-in-out
+          ${sidebarOpen ? 'ml-60' : 'ml-[68px]'}
         `}
       >
-        <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+        <div className="max-w-7xl mx-auto animate-in fade-in duration-300 ease-out">
           {children}
         </div>
       </main>

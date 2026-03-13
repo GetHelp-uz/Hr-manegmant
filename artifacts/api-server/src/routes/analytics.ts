@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, attendanceTable, payrollTable, leaveRequestsTable, advanceRequestsTable, companiesTable } from "@workspace/db";
-import { eq, and, sql, desc, count } from "drizzle-orm";
+import { db, employeesTable, attendanceTable, payrollTable, leaveRequestsTable, advanceRequestsTable, companiesTable, departmentsTable } from "@workspace/db";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -15,11 +15,23 @@ router.get("/overview", requireAuth, async (req, res) => {
     const employees = await db.select().from(employeesTable).where(eq(employeesTable.companyId, companyId));
     const totalEmployees = employees.length;
 
+    const departments = await db.select().from(departmentsTable).where(eq(departmentsTable.companyId, companyId));
+
     const monthAttendance = await db.select().from(attendanceTable).where(
       and(
         eq(attendanceTable.companyId, companyId),
         sql`EXTRACT(MONTH FROM ${attendanceTable.createdAt}) = ${m}`,
         sql`EXTRACT(YEAR FROM ${attendanceTable.createdAt}) = ${y}`
+      )
+    );
+
+    const prevM = m === 1 ? 12 : m - 1;
+    const prevY = m === 1 ? y - 1 : y;
+    const prevMonthAttendance = await db.select().from(attendanceTable).where(
+      and(
+        eq(attendanceTable.companyId, companyId),
+        sql`EXTRACT(MONTH FROM ${attendanceTable.createdAt}) = ${prevM}`,
+        sql`EXTRACT(YEAR FROM ${attendanceTable.createdAt}) = ${prevY}`
       )
     );
 
@@ -37,7 +49,6 @@ router.get("/overview", requireAuth, async (req, res) => {
 
     const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId));
 
-    // Calculate stats
     const totalDays = monthAttendance.length;
     const lateDays = monthAttendance.filter(a => a.lateMinutes && a.lateMinutes > 0).length;
     const totalHours = monthAttendance.reduce((s, a) => s + parseFloat(a.workHours?.toString() || "0"), 0);
@@ -48,37 +59,167 @@ router.get("/overview", requireAuth, async (req, res) => {
     const paidPayrolls = payrolls.filter(p => p.status === "paid");
     const pendingPayrolls = payrolls.filter(p => p.status === "draft" || p.status === "approved");
 
-    // Attendance per employee
+    // Per-employee stats
     const empStats = employees.map(emp => {
       const empAtt = monthAttendance.filter(a => a.employeeId === emp.id);
+      const empPrevAtt = prevMonthAttendance.filter(a => a.employeeId === emp.id);
       const empHours = empAtt.reduce((s, a) => s + parseFloat(a.workHours?.toString() || "0"), 0);
       const empLate = empAtt.filter(a => a.lateMinutes && a.lateMinutes > 0).length;
+      const empPrevLate = empPrevAtt.filter(a => a.lateMinutes && a.lateMinutes > 0).length;
+      const lateRateNum = empAtt.length > 0 ? ((empLate / empAtt.length) * 100) : 0;
+      const prevLateRateNum = empPrevAtt.length > 0 ? ((empPrevLate / empPrevAtt.length) * 100) : 0;
+      const attendanceDrop = empPrevAtt.length > 0 && empAtt.length < empPrevAtt.length * 0.7;
       return {
-        id: emp.id, name: emp.fullName, position: emp.position,
-        days: empAtt.length, hours: empHours, lateDays: empLate,
-        lateRate: empAtt.length > 0 ? ((empLate / empAtt.length) * 100).toFixed(0) : "0"
+        id: emp.id,
+        name: emp.fullName,
+        position: emp.position,
+        departmentId: emp.departmentId,
+        salaryType: emp.salaryType,
+        days: empAtt.length,
+        hours: empHours,
+        lateDays: empLate,
+        lateRate: lateRateNum.toFixed(0),
+        prevDays: empPrevAtt.length,
+        prevLateRate: prevLateRateNum.toFixed(0),
+        attendanceDrop,
       };
     }).sort((a, b) => b.days - a.days);
 
-    // Risk analysis
+    // ── HR RISK DETECTOR ──────────────────────────────────────────────────────
+    const workingDaysInMonth = 22;
+    const hrRisks = employees.map(emp => {
+      const stats = empStats.find(e => e.id === emp.id)!;
+      const lateR = parseInt(stats.lateRate);
+      const prevLateR = parseInt(stats.prevLateRate);
+      let score = 0;
+      const factors: string[] = [];
+
+      if (stats.days === 0 && stats.prevDays > 0) {
+        score += 50;
+        factors.push("Bu oy hech kelmagan");
+      }
+      if (stats.days < workingDaysInMonth * 0.35 && stats.days > 0) {
+        score += 30;
+        factors.push(`Juda kam kelmoqda (${stats.days} kun)`);
+      } else if (stats.days < workingDaysInMonth * 0.6 && stats.days > 0) {
+        score += 15;
+        factors.push(`Kam kelmoqda (${stats.days} kun)`);
+      }
+      if (lateR > 40) {
+        score += 25;
+        factors.push(`Yuqori kechikish: ${lateR}%`);
+      } else if (lateR > 25) {
+        score += 12;
+        factors.push(`Kechikish: ${lateR}%`);
+      }
+      if (stats.attendanceDrop) {
+        score += 20;
+        factors.push(`O'tgan oyga nisbatan ${Math.round(100 - (stats.days / stats.prevDays) * 100)}% kamaydi`);
+      }
+      if (lateR > prevLateR + 15 && prevLateR > 0) {
+        score += 10;
+        factors.push("Kechikish o'sib bormoqda");
+      }
+      const dept = departments.find(d => d.id === stats.departmentId);
+      return {
+        id: emp.id,
+        name: emp.fullName,
+        position: emp.position,
+        department: dept?.name || "Bo'limsiz",
+        riskScore: Math.min(score, 100),
+        riskLevel: score >= 55 ? "high" : score >= 25 ? "medium" : "low",
+        factors,
+      };
+    })
+      .filter(e => e.riskScore > 0)
+      .sort((a, b) => b.riskScore - a.riskScore);
+
+    // ── SMART HIRING ──────────────────────────────────────────────────────────
+    const hiringRecommendations: Array<{
+      department: string;
+      urgency: "high" | "medium" | "low";
+      reason: string;
+      suggestedCount: number;
+      currentCount: number;
+    }> = [];
+
+    const deptEmpMap = new Map<number, typeof employees>();
+    for (const emp of employees) {
+      if (!emp.departmentId) continue;
+      if (!deptEmpMap.has(emp.departmentId)) deptEmpMap.set(emp.departmentId, []);
+      deptEmpMap.get(emp.departmentId)!.push(emp);
+    }
+
+    for (const dept of departments) {
+      const deptEmps = deptEmpMap.get(dept.id) || [];
+      const deptAtt = monthAttendance.filter(a => deptEmps.some(e => e.id === a.employeeId));
+      const deptLate = deptAtt.filter(a => a.lateMinutes && a.lateMinutes > 0).length;
+      const deptLateRate = deptAtt.length > 0 ? (deptLate / deptAtt.length) * 100 : 0;
+      const avgDaysPerEmp = deptEmps.length > 0
+        ? deptAtt.length / deptEmps.length : 0;
+
+      if (deptEmps.length === 0) {
+        hiringRecommendations.push({
+          department: dept.name,
+          urgency: "high",
+          reason: "Bo'limda hech qanday xodim yo'q",
+          suggestedCount: 2,
+          currentCount: 0,
+        });
+      } else if (deptEmps.length < 3 && avgDaysPerEmp > 15) {
+        hiringRecommendations.push({
+          department: dept.name,
+          urgency: "high",
+          reason: `Kam xodim (${deptEmps.length} ta) lekin yuqori ish yuki — xodimlar charchayapti`,
+          suggestedCount: 2,
+          currentCount: deptEmps.length,
+        });
+      } else if (deptLateRate > 30 && deptEmps.length < 5) {
+        hiringRecommendations.push({
+          department: dept.name,
+          urgency: "medium",
+          reason: `Kechikish darajasi yuqori (${deptLateRate.toFixed(0)}%) — ish yuki ortiqcha bo'lishi mumkin`,
+          suggestedCount: 1,
+          currentCount: deptEmps.length,
+        });
+      } else if (deptEmps.length < 2) {
+        hiringRecommendations.push({
+          department: dept.name,
+          urgency: "low",
+          reason: "Bo'limni kuchaytirish tavsiya etiladi",
+          suggestedCount: 1,
+          currentCount: deptEmps.length,
+        });
+      }
+    }
+
+    // Late offenders analysis for hiring context
+    const lateHotspots = empStats
+      .filter(e => parseInt(e.lateRate) > 30)
+      .map(e => e.name);
+    if (lateHotspots.length >= 3) {
+      hiringRecommendations.push({
+        department: "Umumiy",
+        urgency: "medium",
+        reason: `${lateHotspots.length} ta xodim tez-tez kechikmoqda — ular ustiga qo'shimcha xodim zarur bo'lishi mumkin`,
+        suggestedCount: 1,
+        currentCount: lateHotspots.length,
+      });
+    }
+
+    // Risks
     const risks = [];
     if (lateRate > 20) risks.push({ type: "warning", title: "Yuqori kechikish darajasi", desc: `${lateRate.toFixed(0)}% davomatda kechikish aniqlandi. Ish boshlanish vaqtini tekshiring.` });
     if (pendingPayrolls.length > 0 && pendingPayrolls.length >= totalEmployees * 0.5) risks.push({ type: "warning", title: "Oylik hisoblash kutilmoqda", desc: `${pendingPayrolls.length} ta xodimning oylik hisoblash holati "qoralama" yoki "tasdiqlanmagan".` });
     if (leaveReqs.length > 0) risks.push({ type: "info", title: "Ko'rib chiqilmagan so'rovlar", desc: `${leaveReqs.length} ta ta'til/ruxsat so'rovi kutilmoqda.` });
     if (advanceReqs.length > 0) risks.push({ type: "info", title: "Avans so'rovlari", desc: `${advanceReqs.length} ta avans so'rovi ko'rib chiqilmagan.` });
-
     const highLateCounts = empStats.filter(e => parseInt(e.lateRate) > 30);
-    if (highLateCounts.length > 0) {
-      risks.push({ type: "danger", title: "Tez-tez kechadigan xodimlar", desc: `${highLateCounts.map(e => e.name).join(", ")} — 30%+ kechikish darajasi.` });
-    }
-
+    if (highLateCounts.length > 0) risks.push({ type: "danger", title: "Tez-tez kechadigan xodimlar", desc: `${highLateCounts.map(e => e.name).join(", ")} — 30%+ kechikish darajasi.` });
     const lowAttendance = empStats.filter(e => e.days < 10 && e.days > 0);
-    if (lowAttendance.length > 0) {
-      risks.push({ type: "warning", title: "Kam kelgan xodimlar", desc: `${lowAttendance.map(e => `${e.name} (${e.days} kun)`).join(", ")}` });
-    }
+    if (lowAttendance.length > 0) risks.push({ type: "warning", title: "Kam kelgan xodimlar", desc: `${lowAttendance.map(e => `${e.name} (${e.days} kun)`).join(", ")}` });
 
     // Recommendations
-    const recommendations = [];
+    const recommendations: string[] = [];
     if (lateRate > 10) recommendations.push("Kechikish muammosini hal qilish uchun xodimlar bilan individual suhbat o'tkazing");
     if (totalEmployees > 0 && monthAttendance.length === 0) recommendations.push("Bu oy uchun hali davomat ma'lumotlari kiritilmagan — QR tizimini tekshiring");
     if (pendingPayrolls.length > 0) recommendations.push("Oylik hisob-kitoblarni tasdiqlang va to'lovlarni amalga oshiring");
@@ -86,7 +227,7 @@ router.get("/overview", requireAuth, async (req, res) => {
     recommendations.push("Har hafta davomat hisobotini ko'rib chiqing va trend'larni kuzating");
     recommendations.push("Xodimlarni Telegram botga ulang — ular o'z ma'lumotlarini o'zlari ko'ra oladi");
 
-    // Trend data (last 7 days)
+    // Trend (last 7 days)
     const last7 = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -124,6 +265,8 @@ router.get("/overview", requireAuth, async (req, res) => {
       risks,
       recommendations,
       trend: last7,
+      hrRisks,
+      hiringRecommendations,
     });
   } catch (err) {
     console.error(err);
