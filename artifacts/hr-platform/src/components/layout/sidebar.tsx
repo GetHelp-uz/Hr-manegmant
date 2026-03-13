@@ -14,6 +14,7 @@ import {
   CalendarDays,
   HandCoins,
   MonitorPlay,
+  UserCog,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation } from "@/lib/i18n";
@@ -23,7 +24,7 @@ import { apiClient } from "@/lib/api-client";
 
 export function Sidebar() {
   const [location] = useLocation();
-  const { language, sidebarOpen, toggleSidebar } = useAppStore();
+  const { language, sidebarOpen, toggleSidebar, userRole } = useAppStore();
   const t = useTranslation(language);
   const { data: company } = useGetMyCompany({ query: { retry: false } });
 
@@ -31,6 +32,7 @@ export function Sidebar() {
     queryKey: ["/api/leave-requests"],
     queryFn: async () => { const r = await apiClient.get("/api/leave-requests"); return r.data as any[]; },
     refetchInterval: 30000,
+    enabled: userRole === "admin",
   });
   const pendingCount = leaveRequests.filter((r: any) => r.status === "pending").length;
 
@@ -38,23 +40,30 @@ export function Sidebar() {
     queryKey: ["/api/advances", "pending"],
     queryFn: async () => { const r = await apiClient.get("/api/advances?status=pending"); return r.data as any[]; },
     refetchInterval: 30000,
+    enabled: userRole === "admin",
   });
   const pendingAdvances = (advancesData as any[] | undefined)?.length || 0;
 
-  const navigation = [
-    { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard },
-    { name: t('employees'), href: "/employees", icon: Users },
-    { name: "Bo'limlar", href: "/departments", icon: Building2 },
-    { name: t('attendance'), href: "/attendance", icon: CalendarCheck },
-    { name: "Ta'til So'rovlar", href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined },
-    { name: "Avans So'rovlar", href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined },
-    { name: "Nazorat Monitor", href: "/monitor", icon: MonitorPlay },
-    { name: t('qr_scanner'), href: "/scanner", icon: ScanLine },
-    { name: t('devices'), href: "/devices", icon: MonitorSmartphone },
-    { name: t('payroll'), href: "/payroll", icon: Banknote },
-    { name: t('reports'), href: "/reports", icon: FileBarChart },
-    { name: t('settings'), href: "/settings", icon: Settings },
+  const isAdmin = userRole === "admin";
+  const isAccountant = userRole === "accountant" || userRole === "admin";
+
+  const allNav = [
+    { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "accountant", "viewer"] },
+    { name: t('employees'), href: "/employees", icon: Users, roles: ["admin"] },
+    { name: "Bo'limlar", href: "/departments", icon: Building2, roles: ["admin"] },
+    { name: t('attendance'), href: "/attendance", icon: CalendarCheck, roles: ["admin", "accountant", "viewer"] },
+    { name: "Ta'til So'rovlar", href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined, roles: ["admin"] },
+    { name: "Avans So'rovlar", href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined, roles: ["admin"] },
+    { name: "Nazorat Monitor", href: "/monitor", icon: MonitorPlay, roles: ["admin", "accountant", "viewer"] },
+    { name: t('qr_scanner'), href: "/scanner", icon: ScanLine, roles: ["admin"] },
+    { name: t('devices'), href: "/devices", icon: MonitorSmartphone, roles: ["admin"] },
+    { name: t('payroll'), href: "/payroll", icon: Banknote, roles: ["admin", "accountant"] },
+    { name: t('reports'), href: "/reports", icon: FileBarChart, roles: ["admin", "accountant", "viewer"] },
+    { name: "Foydalanuvchilar", href: "/staff", icon: UserCog, roles: ["admin"] },
+    { name: t('settings'), href: "/settings", icon: Settings, roles: ["admin"] },
   ];
+
+  const navigation = allNav.filter(item => !userRole || item.roles.includes(userRole));
 
   return (
     <div 
@@ -94,7 +103,15 @@ export function Sidebar() {
         {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
       </button>
 
-      <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1 scrollbar-hide">
+      {sidebarOpen && userRole && userRole !== "admin" && (
+        <div className="mx-3 mt-3 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+          <p className="text-xs font-semibold text-blue-400">
+            {userRole === "accountant" ? "🧮 Buxgalter" : "👁 Ko'ruvchi"}
+          </p>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 scrollbar-hide">
         {navigation.map((item: any) => {
           const isActive = location === item.href;
           return (

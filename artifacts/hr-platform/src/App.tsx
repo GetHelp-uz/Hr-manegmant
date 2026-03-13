@@ -21,6 +21,7 @@ import LeaveRequests from "@/pages/leave-requests/index";
 import Advances from "@/pages/advances/index";
 import Monitor from "@/pages/monitor/index";
 import Join from "@/pages/join/index";
+import Staff from "@/pages/staff/index";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/payroll" component={Payroll} />
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />
+      <Route path="/staff" component={Staff} />
       <Route component={NotFound} />
     </Switch>
   );

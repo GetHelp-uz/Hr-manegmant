@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, payrollTable, attendanceTable, employeesTable } from "@workspace/db";
+import { db, payrollTable, attendanceTable, employeesTable, adminsTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin, requireAccountant } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -21,7 +21,16 @@ router.get("/", requireAuth, async (req, res) => {
 
     const withEmployees = await Promise.all(records.map(async (r) => {
       const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, r.employeeId));
-      return formatPayroll(r, emp);
+      let approver = null, payer = null;
+      if (r.approvedBy) {
+        const [a] = await db.select({ id: adminsTable.id, name: adminsTable.name }).from(adminsTable).where(eq(adminsTable.id, r.approvedBy));
+        approver = a || null;
+      }
+      if (r.paidBy) {
+        const [p] = await db.select({ id: adminsTable.id, name: adminsTable.name }).from(adminsTable).where(eq(adminsTable.id, r.paidBy));
+        payer = p || null;
+      }
+      return formatPayroll(r, emp, approver, payer);
     }));
 
     const totalAmount = withEmployees.reduce((sum, p) => sum + (p.grossSalary || 0), 0);
@@ -32,7 +41,7 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/calculate", requireAuth, async (req, res) => {
+router.post("/calculate", requireAdmin, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
     const { month, year } = req.body;
@@ -69,23 +78,111 @@ router.post("/calculate", requireAuth, async (req, res) => {
 
       let payrollRecord;
       if (existing) {
+        if (existing.status === "paid") {
+          results.push(formatPayroll(existing, emp, null, null));
+          continue;
+        }
         const [updated] = await db.update(payrollTable)
-          .set({ totalHours: totalHours.toFixed(2), totalDays, grossSalary: grossSalary.toFixed(2) })
+          .set({ totalHours: totalHours.toFixed(2), totalDays, grossSalary: grossSalary.toFixed(2), status: "draft" })
           .where(eq(payrollTable.id, existing.id)).returning();
         payrollRecord = updated;
       } else {
         const [created] = await db.insert(payrollTable).values({
           employeeId: emp.id, companyId, month, year,
-          totalHours: totalHours.toFixed(2), totalDays, grossSalary: grossSalary.toFixed(2),
+          totalHours: totalHours.toFixed(2), totalDays, grossSalary: grossSalary.toFixed(2), status: "draft",
         }).returning();
         payrollRecord = created;
       }
 
-      results.push(formatPayroll(payrollRecord, emp));
+      results.push(formatPayroll(payrollRecord, emp, null, null));
     }
 
     const totalAmount = results.reduce((sum, p) => sum + (p.grossSalary || 0), 0);
     return res.json({ data: results, total: results.length, totalAmount });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.patch("/:id/approve", requireAdmin, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const adminId = (req.session as any).adminId;
+    const id = parseInt(req.params.id);
+    const { notes } = req.body;
+
+    const [existing] = await db.select().from(payrollTable).where(and(
+      eq(payrollTable.id, id),
+      eq(payrollTable.companyId, companyId),
+    ));
+    if (!existing) return res.status(404).json({ error: "not_found" });
+    if (existing.status === "paid") return res.status(400).json({ error: "bad_request", message: "Already paid" });
+
+    const [updated] = await db.update(payrollTable).set({
+      status: "approved",
+      approvedBy: adminId,
+      approvedAt: new Date(),
+      notes: notes || existing.notes,
+    }).where(eq(payrollTable.id, id)).returning();
+
+    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, updated.employeeId));
+    const [approver] = await db.select({ id: adminsTable.id, name: adminsTable.name }).from(adminsTable).where(eq(adminsTable.id, adminId));
+    return res.json({ data: formatPayroll(updated, emp, approver, null) });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.patch("/:id/pay", requireAccountant, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const adminId = (req.session as any).adminId;
+    const id = parseInt(req.params.id);
+    const { notes } = req.body;
+
+    const [existing] = await db.select().from(payrollTable).where(and(
+      eq(payrollTable.id, id),
+      eq(payrollTable.companyId, companyId),
+    ));
+    if (!existing) return res.status(404).json({ error: "not_found" });
+    if (existing.status !== "approved") {
+      return res.status(400).json({ error: "bad_request", message: "Payroll must be approved by admin first" });
+    }
+
+    const [updated] = await db.update(payrollTable).set({
+      status: "paid",
+      paidBy: adminId,
+      paidAt: new Date(),
+      notes: notes || existing.notes,
+    }).where(eq(payrollTable.id, id)).returning();
+
+    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, updated.employeeId));
+    let approver = null;
+    if (updated.approvedBy) {
+      const [a] = await db.select({ id: adminsTable.id, name: adminsTable.name }).from(adminsTable).where(eq(adminsTable.id, updated.approvedBy));
+      approver = a || null;
+    }
+    const [payer] = await db.select({ id: adminsTable.id, name: adminsTable.name }).from(adminsTable).where(eq(adminsTable.id, adminId));
+    return res.json({ data: formatPayroll(updated, emp, approver, payer) });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.delete("/:id", requireAdmin, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const id = parseInt(req.params.id);
+    const [existing] = await db.select().from(payrollTable).where(and(
+      eq(payrollTable.id, id), eq(payrollTable.companyId, companyId),
+    ));
+    if (!existing) return res.status(404).json({ error: "not_found" });
+    if (existing.status === "paid") return res.status(400).json({ error: "bad_request", message: "Cannot delete paid payroll" });
+    await db.delete(payrollTable).where(eq(payrollTable.id, id));
+    return res.json({ success: true });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "server_error" });
@@ -102,13 +199,19 @@ function formatEmployee(e: any) {
   };
 }
 
-function formatPayroll(p: any, emp: any) {
+function formatPayroll(p: any, emp: any, approver: any, payer: any) {
   return {
     id: p.id, employeeId: p.employeeId, companyId: p.companyId,
     month: p.month, year: p.year,
     totalHours: p.totalHours ? parseFloat(p.totalHours) : 0,
     totalDays: p.totalDays || 0,
     grossSalary: p.grossSalary ? parseFloat(p.grossSalary) : 0,
+    status: p.status || "draft",
+    approvedBy: approver,
+    approvedAt: p.approvedAt,
+    paidBy: payer,
+    paidAt: p.paidAt,
+    notes: p.notes,
     employee: emp ? formatEmployee(emp) : null,
     createdAt: p.createdAt,
   };

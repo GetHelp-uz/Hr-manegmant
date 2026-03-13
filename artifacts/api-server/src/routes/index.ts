@@ -13,6 +13,7 @@ import leaveRequestsRouter from "./leave_requests";
 import settingsRouter from "./settings";
 import joinRouter from "./join";
 import advancesRouter from "./advances";
+import staffRouter from "./staff";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/leave-requests", leaveRequestsRouter);
 router.use("/settings", settingsRouter);
 router.use("/join", joinRouter);
 router.use("/advances", advancesRouter);
+router.use("/staff", staffRouter);
 
 export default router;

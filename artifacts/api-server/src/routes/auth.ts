@@ -30,6 +30,7 @@ router.post("/login", async (req, res) => {
     const session = (req as any).session;
     session.adminId = admin.id;
     session.companyId = admin.companyId;
+    session.role = admin.role;
 
     return res.json({
       success: true,

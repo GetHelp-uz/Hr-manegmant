@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const { language } = useAppStore();
+  const { language, setUserRole } = useAppStore();
   const t = useTranslation(language);
   const { toast } = useToast();
   
@@ -20,7 +20,8 @@ export default function Login() {
   
   const loginMutation = useLogin({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data: any) => {
+        if (data?.user?.role) setUserRole(data.user.role);
         setLocation("/dashboard");
       },
       onError: (err: any) => {

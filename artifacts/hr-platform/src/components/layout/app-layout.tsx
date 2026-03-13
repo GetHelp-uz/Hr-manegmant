@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { useAppStore } from "@/store/use-store";
@@ -6,13 +6,19 @@ import { useGetMe } from "@workspace/api-client-react";
 import { Redirect } from "wouter";
 
 export function AppLayout({ children }: { children: ReactNode }) {
-  const { sidebarOpen } = useAppStore();
+  const { sidebarOpen, setUserRole } = useAppStore();
   const { data: me, isLoading, error } = useGetMe({ 
     query: { 
       retry: false,
       refetchOnWindowFocus: false
     } 
   });
+
+  useEffect(() => {
+    if (me?.user?.role) {
+      setUserRole(me.user.role);
+    }
+  }, [me?.user?.role]);
 
   if (isLoading) {
     return (

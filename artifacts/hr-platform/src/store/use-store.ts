@@ -8,6 +8,8 @@ interface AppState {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  userRole: string | null;
+  setUserRole: (role: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -18,10 +20,12 @@ export const useAppStore = create<AppState>()(
       sidebarOpen: true,
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      userRole: null,
+      setUserRole: (role) => set({ userRole: role }),
     }),
     {
       name: 'hr-app-storage',
-      partialize: (state) => ({ language: state.language }), // only persist language
+      partialize: (state) => ({ language: state.language }),
     }
   )
 );
