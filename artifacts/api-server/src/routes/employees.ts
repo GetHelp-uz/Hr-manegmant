@@ -163,7 +163,7 @@ router.put("/:id", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
     const id = parseInt(req.params.id);
-    const { fullName, phone, position, salaryType, hourlyRate, monthlySalary, telegramId, departmentId } = req.body;
+    const { fullName, phone, position, salaryType, hourlyRate, monthlySalary, telegramId, departmentId, jshshir, passportSeries, birthDate } = req.body;
 
     const [existing] = await db
       .select()
@@ -174,17 +174,22 @@ router.put("/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "not_found" });
     }
 
+    const setData: any = {
+      fullName: fullName ?? existing.fullName,
+      phone: phone ?? existing.phone,
+      position: position ?? existing.position,
+      salaryType: salaryType ?? existing.salaryType,
+      hourlyRate: hourlyRate?.toString() ?? existing.hourlyRate,
+      monthlySalary: monthlySalary?.toString() ?? existing.monthlySalary,
+      telegramId: telegramId ?? existing.telegramId,
+      departmentId: departmentId !== undefined ? (departmentId ? parseInt(departmentId) : null) : existing.departmentId,
+    };
+    if (jshshir !== undefined) setData.jshshir = jshshir || null;
+    if (passportSeries !== undefined) setData.passportSeries = passportSeries || null;
+    if (birthDate !== undefined) setData.birthDate = birthDate || null;
+
     const [updated] = await db.update(employeesTable)
-      .set({
-        fullName: fullName ?? existing.fullName,
-        phone: phone ?? existing.phone,
-        position: position ?? existing.position,
-        salaryType: salaryType ?? existing.salaryType,
-        hourlyRate: hourlyRate?.toString() ?? existing.hourlyRate,
-        monthlySalary: monthlySalary?.toString() ?? existing.monthlySalary,
-        telegramId: telegramId ?? existing.telegramId,
-        departmentId: departmentId !== undefined ? (departmentId ? parseInt(departmentId) : null) : existing.departmentId,
-      })
+      .set(setData)
       .where(eq(employeesTable.id, id))
       .returning();
 
@@ -387,6 +392,9 @@ function formatEmployee(e: any) {
     telegramId: e.telegramId,
     departmentId: e.departmentId,
     status: e.status,
+    jshshir: e.jshshir || null,
+    passportSeries: e.passportSeries || null,
+    birthDate: e.birthDate || null,
     createdAt: e.createdAt,
   };
 }

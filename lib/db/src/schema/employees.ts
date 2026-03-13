@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, varchar, text, numeric, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, varchar, text, numeric, timestamp, boolean, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { companiesTable } from "./companies";
@@ -22,6 +22,9 @@ export const employeesTable = pgTable("employees", {
   faceDescriptor: text("face_descriptor"),
   telegramId: varchar("telegram_id", { length: 100 }),
   status: varchar("status", { length: 50 }).notNull().default("active"),
+  jshshir: varchar("jshshir", { length: 20 }),
+  passportSeries: varchar("passport_series", { length: 20 }),
+  birthDate: date("birth_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

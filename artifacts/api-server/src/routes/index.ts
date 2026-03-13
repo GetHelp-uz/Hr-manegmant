@@ -23,6 +23,7 @@ import meRouter from "./me";
 import auditLogRouter from "./audit-log";
 import integrationsRouter from "./integrations";
 import cvMonitorRouter from "./cv-monitor";
+import govExportRouter from "./gov-export";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use("/me", meRouter);
 router.use("/audit-log", auditLogRouter);
 router.use("/integrations", integrationsRouter);
 router.use("/cv-monitor", cvMonitorRouter);
+router.use("/gov-export", govExportRouter);
 
 export default router;

@@ -1,0 +1,41 @@
+
+Library
+Tasks
+Pro feature
+Background tasks allow you to get more work done at once.
+
+Try creating your first one!
+Preview
+Your app is not running
+to preview your app.
+Agent
+va open cv ulash va kamera ulash kntegratsiya open cv Ai bilan ishlaydigon hodimlar harakatchanligi ish qilyapti dam olib oʻtiribdi ish joyida qancha vaqt yoʻq boldi korxona admink ish soatlarnk oʻzi boʻlsin abed vaqtini belgilash hammadi bolsin bot dan admin panelga soʻrov bormayapti nima qilish kerak tushuntiring
+
+yana qoʻshimcha ustuvorlik idea bering workly dan kuchliroq boʻlishi shart
+
+Workly'dan kuchli bo'lish uchun eng ta'sirchan g'oyalar ro'yxati:
+
+🏆 Workly'dan ustun bo'ladigan 12 ta ustuvor g'oya
+🔴 Yuqori ustuvorlik (eng muhim)
+1. HR Hujjatlar moduli (Elektron buyruqlar)
+Ishga qabul qilish buyrug'i, o'tkazish, ishdan bo'shatish, ta'til buyrug'i — hammasi tizimda PDF sifatida avtomatik shakllanadi. Workly'da bu yo'q. Korxona direktor imzosini raqamli qo'yadi, arxivlanadi.
+
+2. KPI / Ishlash ko'rsatkichlari
+Har bir xodim uchun oylik/choraklik maqsadlar, ularni bajarish foizi. Rahbar xodimga baho qo'yadi. Maosh bonusga avtomatik bog'lanadi. Workly bu xizmatni umuman taklif qilmaydi.
+
+3. Rekrutment / CV pipeline
+Ochiq vakansiyalar → CV qabul qilish → suhbat rejalash → taklif → onboarding — barchasi bir tizimda. HR mutaxassisi uchun eng katta muammo hal qilinadi.
+
+4. Xodim anketa + eNPS (Rahbariyatdan qoniqish)
+Oyda bir marta anonimlik anketa (Telegram bot orqali). "10 balldan necha ball bilan korxonani do'stingizga tavsiya etasiz?" Natijalar dashboard'da ko'rinadi.
+
+🟡 O'rta ustuvorlik
+5. Smart bildirishnomalar (Proaktiv ogohlantirishlar)
+
+Xodim tug'ilgan kuni (avtomat tabrik)
+Mehnat shartnomasi muddati tugashi 30 kun qoldi
+Sinov muddati tugashi
+3 kun ketma-ket ishga kelmadi — darhol ogohlantirish
+Avans limiti oshdi
+6. Ko'p filial / Ofis boshqaruvi
+Bir kompaniya uchun bir nechta ofis/filiallar: Toshkent, Samarqand, Namangan — har biri alohida davomat, alohida hisobot. Workly'da bu cheklangan.
