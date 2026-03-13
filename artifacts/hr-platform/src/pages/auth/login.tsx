@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { useAppStore } from "@/store/use-store";
+import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, Lock, AtSign, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const PLATFORM_ADMIN_LOGIN = "im_yakuboff98";
 
 const STORAGE_KEY = "hr_saved_credentials";
 
@@ -53,8 +56,28 @@ export default function Login() {
     }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [platformLoading, setPlatformLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (loginVal.trim() === PLATFORM_ADMIN_LOGIN) {
+      setPlatformLoading(true);
+      try {
+        await apiClient.post("/api/platform-admin/login", { login: loginVal.trim(), password });
+        setLocation("/platform-admin/dashboard");
+      } catch (err: any) {
+        toast({
+          variant: "destructive",
+          title: "Xatolik",
+          description: err?.message || "Login yoki parol noto'g'ri",
+        });
+      } finally {
+        setPlatformLoading(false);
+      }
+      return;
+    }
+
     loginMutation.mutate({ data: { login: loginVal, password } });
   };
 
@@ -152,9 +175,9 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full h-12 rounded-xl text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 gap-2"
-              disabled={loginMutation.isPending}
+              disabled={loginMutation.isPending || platformLoading}
             >
-              {loginMutation.isPending ? "Kirilmoqda..." : <>Kirish <ArrowRight className="w-5 h-5" /></>}
+              {(loginMutation.isPending || platformLoading) ? "Kirilmoqda..." : <>Kirish <ArrowRight className="w-5 h-5" /></>}
             </Button>
           </form>
 
