@@ -8,6 +8,7 @@ export const adminsTable = pgTable("admins", {
   companyId: integer("company_id").references(() => companiesTable.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
+  login: varchar("login", { length: 100 }).unique(),
   password: text("password").notNull(),
   role: varchar("role", { length: 50 }).notNull().default("admin"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

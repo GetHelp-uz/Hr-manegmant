@@ -7,7 +7,8 @@ import { useListEmployees, useCreateEmployee, useDeleteEmployee } from "@workspa
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw } from "lucide-react";
+import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw, MessageCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,11 +24,15 @@ export default function Employees() {
   const [search, setSearch] = useState("");
   const { data: employees, isLoading } = useListEmployees({ search });
 
+  const { toast } = useToast();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isTgQrOpen, setIsTgQrOpen] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState<any | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [tgQrData, setTgQrData] = useState<{ qrCode: string; deepLink: string } | null>(null);
+  const [tgQrLoading, setTgQrLoading] = useState(false);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["/api/departments"],
@@ -92,6 +97,22 @@ export default function Employees() {
     } else {
       setQrLoading(true);
       await loadQr(emp);
+    }
+  };
+
+  const openTgQr = async (emp: any) => {
+    setSelectedEmp(emp);
+    setIsTgQrOpen(true);
+    setTgQrLoading(true);
+    setTgQrData(null);
+    try {
+      const r = await apiClient.get(`/api/employees/${emp.id}/telegram-qr`);
+      setTgQrData({ qrCode: (r as any).qrCode, deepLink: (r as any).deepLink });
+    } catch {
+      toast({ variant: "destructive", title: "Xatolik", description: "Telegram QR yaratilmadi" });
+      setIsTgQrOpen(false);
+    } finally {
+      setTgQrLoading(false);
     }
   };
 
@@ -194,6 +215,10 @@ export default function Employees() {
                           <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg gap-1.5 text-xs" onClick={() => openQr(emp)}>
                             <QrCode className="w-3.5 h-3.5 text-primary" />
                             QR
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => openTgQr(emp)}>
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Telegram
                           </Button>
                           {!isHrOnly && (
                             <Button
@@ -339,6 +364,62 @@ export default function Employees() {
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${qrLoading ? "animate-spin" : ""}`} /> Yangilash
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Telegram QR Dialog */}
+      <Dialog open={isTgQrOpen} onOpenChange={setIsTgQrOpen}>
+        <DialogContent className="sm:max-w-sm rounded-3xl p-8 flex flex-col items-center text-center">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-display flex items-center gap-2 justify-center">
+              <MessageCircle className="w-5 h-5 text-blue-500" />
+              Telegram QR Kodi
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">{selectedEmp?.fullName}</p>
+          </DialogHeader>
+          <div className="mt-4 bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
+            {tgQrLoading ? (
+              <div className="w-[200px] h-[200px] bg-muted animate-pulse rounded-xl flex items-center justify-center">
+                <span className="text-sm text-muted-foreground">Yuklanmoqda...</span>
+              </div>
+            ) : tgQrData?.qrCode ? (
+              <img src={tgQrData.qrCode} alt="Telegram QR" className="w-[200px] h-[200px]" />
+            ) : (
+              <div className="w-[200px] h-[200px] bg-muted rounded-xl flex items-center justify-center">
+                <span className="text-sm text-red-500">Yaratilmadi</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 text-center space-y-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Bu QR kodni xodimga bering. Telefon kamerasi bilan skanerlasa, 
+              <strong> Telegram bot</strong> avtomatik ochiladi va xodim ulandi.
+            </p>
+            <div className="flex items-center gap-1 justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              <span className="text-xs text-green-700 font-medium">Bir marta skanerlash kifoya</span>
+            </div>
+          </div>
+          {tgQrData?.qrCode && (
+            <Button variant="outline" className="w-full mt-4 rounded-xl text-sm gap-2"
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = tgQrData.qrCode;
+                a.download = `telegram_qr_${selectedEmp?.fullName?.replace(/\s/g, "_")}.png`;
+                a.click();
+              }}>
+              <Download className="w-4 h-4" /> Yuklab olish
+            </Button>
+          )}
+          {tgQrData?.deepLink && (
+            <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground gap-2 mt-1"
+              onClick={() => {
+                navigator.clipboard.writeText(tgQrData.deepLink);
+                toast({ title: "Nusxalandi!", description: "Telegram havolasi nusxalandi" });
+              }}>
+              📋 Havolani nusxalash
+            </Button>
+          )}
         </DialogContent>
       </Dialog>
     </AppLayout>

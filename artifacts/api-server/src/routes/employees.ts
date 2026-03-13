@@ -229,6 +229,29 @@ router.get("/:id/qr", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/:id/telegram-qr", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const id = parseInt(req.params.id);
+
+    const [employee] = await db
+      .select()
+      .from(employeesTable)
+      .where(and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId)));
+
+    if (!employee) return res.status(404).json({ error: "not_found" });
+
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || "hr_workforce_bot";
+    const deepLink = `https://t.me/${botUsername}?start=emp_${employee.id}`;
+    const telegramQr = await QRCode.toDataURL(deepLink, { width: 350, margin: 2 });
+
+    return res.json({ qrCode: telegramQr, deepLink, employeeId: id, fullName: employee.fullName });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
 router.post("/:id/regenerate-qr", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;

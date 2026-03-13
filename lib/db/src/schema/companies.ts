@@ -15,6 +15,7 @@ export const companiesTable = pgTable("companies", {
   workEndTime: varchar("work_end_time", { length: 10 }).default("18:00"),
   lateThresholdMinutes: varchar("late_threshold_minutes", { length: 5 }).default("15"),
   telegramAdminId: varchar("telegram_admin_id", { length: 100 }),
+  address: varchar("address", { length: 500 }),
   showSalaryToEmployee: boolean("show_salary_to_employee").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

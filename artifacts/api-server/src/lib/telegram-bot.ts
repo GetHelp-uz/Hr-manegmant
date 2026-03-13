@@ -127,9 +127,47 @@ function setupHandlers(bot: TelegramBot) {
 
 async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: any) {
   const parts = text.split(" ");
-  const joinCode = parts[1]?.trim().toUpperCase();
+  const param = parts[1]?.trim();
 
-  if (joinCode) {
+  if (param) {
+    // Employee personal QR code: emp_{qrCode}
+    if (param.startsWith("emp_")) {
+      const qrCode = param.slice(4);
+      const [employee] = await db.select().from(employeesTable).where(eq(employeesTable.qrCode, qrCode));
+
+      if (!employee) {
+        await bot.sendMessage(chatId, `❌ QR kod noto'g'ri yoki muddati o'tgan. Admin bilan bog'laning.`);
+        return;
+      }
+
+      // Already linked
+      if (employee.telegramId && employee.telegramId === chatId) {
+        await bot.sendMessage(
+          chatId,
+          `✅ <b>Siz allaqachon ulangansiz!</b>\n\n👤 ${employee.fullName}\n📋 Lavozim: ${employee.position}`,
+          { parse_mode: "HTML", ...mainMenu() }
+        );
+        return;
+      }
+
+      // Link employee to this Telegram
+      await db.update(employeesTable).set({ telegramId: chatId }).where(eq(employeesTable.id, employee.id));
+      const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, employee.companyId));
+
+      await bot.sendMessage(
+        chatId,
+        `✅ <b>Muvaffaqiyatli ulandi!</b>\n\n` +
+        `👤 Xodim: <b>${employee.fullName}</b>\n` +
+        `🏢 Kompaniya: <b>${company?.name || "—"}</b>\n` +
+        `📋 Lavozim: ${employee.position}\n\n` +
+        `Endi menyudan foydalanishingiz mumkin:`,
+        { parse_mode: "HTML", ...mainMenu() }
+      );
+      return;
+    }
+
+    // Company join QR code
+    const joinCode = param.toUpperCase();
     const [company] = await db.select().from(companiesTable).where(eq(companiesTable.joinCode, joinCode));
 
     if (!company) {
@@ -138,14 +176,13 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
     }
 
     const existingEmployee = await getEmployee(chatId);
-
     if (existingEmployee) {
       await bot.sendMessage(
         chatId,
-        `ℹ️ Siz allaqachon <b>${existingEmployee.fullName}</b> sifatida ro'yxatdasiz.\n\n<b>${company.name}</b> kompaniyasiga ulanmoqchisiz?\n\n/confirm - Tasdiqlash\n/cancel - Bekor qilish`,
-        { parse_mode: "HTML" }
+        `ℹ️ Siz allaqachon <b>${existingEmployee.fullName}</b> sifatida ro'yxatdasiz.\n\n<b>${company.name}</b> kompaniyasiga ulanish uchun telefon raqamingizni yuboring:`,
+        { parse_mode: "HTML", ...cancelMenu() }
       );
-      userState[chatId] = { step: "confirm_company_join", data: { companyId: company.id, companyName: company.name } };
+      userState[chatId] = { step: "enter_phone_for_join", data: { companyId: company.id, companyName: company.name, joinCode } };
       return;
     }
 
@@ -165,8 +202,9 @@ async function handleStart(bot: TelegramBot, chatId: string, text: string, msg: 
     await bot.sendMessage(
       chatId,
       `🏢 <b>HR Tizimi Botiga Xush Kelibsiz!</b>\n\n` +
-      `Botdan foydalanish uchun kompaniyangiz bergan QR kodni skanerlang.\n\n` +
-      `Telegram ID: <code>${chatId}</code>`,
+      `🔹 Shaxsiy QR kodingizni (admindan oling) skanerlang\n` +
+      `🔹 Kompaniya QR kodini skanerlang va telefon raqamingizni yuboring\n\n` +
+      `📱 Telegram ID: <code>${chatId}</code>`,
       { parse_mode: "HTML" }
     );
   }
