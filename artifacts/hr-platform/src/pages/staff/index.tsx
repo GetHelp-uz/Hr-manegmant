@@ -24,6 +24,7 @@ interface StaffMember {
 const ROLE_LABELS: Record<string, { label: string; color: string; icon: any }> = {
   admin: { label: "Boshliq (Admin)", color: "bg-purple-100 text-purple-700", icon: Shield },
   accountant: { label: "Buxgalter", color: "bg-blue-100 text-blue-700", icon: Calculator },
+  observer: { label: "Nazoratchi", color: "bg-amber-100 text-amber-700", icon: Users },
   viewer: { label: "Ko'ruvchi", color: "bg-gray-100 text-gray-700", icon: Users },
 };
 
@@ -184,6 +185,7 @@ export default function Staff() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="accountant">Buxgalter</SelectItem>
+                  <SelectItem value="observer">Nazoratchi (davomat ko'rish)</SelectItem>
                   <SelectItem value="viewer">Ko'ruvchi (faqat ko'rish)</SelectItem>
                 </SelectContent>
               </Select>

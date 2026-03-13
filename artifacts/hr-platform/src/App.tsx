@@ -22,6 +22,10 @@ import Advances from "@/pages/advances/index";
 import Monitor from "@/pages/monitor/index";
 import Join from "@/pages/join/index";
 import Staff from "@/pages/staff/index";
+import PlatformAdminLogin from "@/pages/platform-admin/login";
+import PlatformAdminDashboard from "@/pages/platform-admin/dashboard";
+import PlatformAdminCompany from "@/pages/platform-admin/company";
+import PlatformAdminSystem from "@/pages/platform-admin/system";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +50,10 @@ function Router() {
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />
       <Route path="/staff" component={Staff} />
+      <Route path="/platform-admin/login" component={PlatformAdminLogin} />
+      <Route path="/platform-admin/dashboard" component={PlatformAdminDashboard} />
+      <Route path="/platform-admin/companies/:id" component={PlatformAdminCompany} />
+      <Route path="/platform-admin/system" component={PlatformAdminSystem} />
       <Route component={NotFound} />
     </Switch>
   );

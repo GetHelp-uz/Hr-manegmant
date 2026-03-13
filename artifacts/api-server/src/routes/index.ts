@@ -14,6 +14,7 @@ import settingsRouter from "./settings";
 import joinRouter from "./join";
 import advancesRouter from "./advances";
 import staffRouter from "./staff";
+import platformAdminRouter from "./platform-admin";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use("/settings", settingsRouter);
 router.use("/join", joinRouter);
 router.use("/advances", advancesRouter);
 router.use("/staff", staffRouter);
+router.use("/platform-admin", platformAdminRouter);
 
 export default router;

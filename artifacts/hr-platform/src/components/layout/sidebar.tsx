@@ -48,13 +48,13 @@ export function Sidebar() {
   const isAccountant = userRole === "accountant" || userRole === "admin";
 
   const allNav = [
-    { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "accountant", "viewer"] },
+    { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "accountant", "viewer", "observer"] },
     { name: t('employees'), href: "/employees", icon: Users, roles: ["admin"] },
     { name: "Bo'limlar", href: "/departments", icon: Building2, roles: ["admin"] },
-    { name: t('attendance'), href: "/attendance", icon: CalendarCheck, roles: ["admin", "accountant", "viewer"] },
+    { name: t('attendance'), href: "/attendance", icon: CalendarCheck, roles: ["admin", "accountant", "viewer", "observer"] },
     { name: "Ta'til So'rovlar", href: "/leave-requests", icon: CalendarDays, badge: pendingCount || undefined, roles: ["admin"] },
     { name: "Avans So'rovlar", href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined, roles: ["admin"] },
-    { name: "Nazorat Monitor", href: "/monitor", icon: MonitorPlay, roles: ["admin", "accountant", "viewer"] },
+    { name: "Nazorat Monitor", href: "/monitor", icon: MonitorPlay, roles: ["admin", "accountant", "viewer", "observer"] },
     { name: t('qr_scanner'), href: "/scanner", icon: ScanLine, roles: ["admin"] },
     { name: t('devices'), href: "/devices", icon: MonitorSmartphone, roles: ["admin"] },
     { name: t('payroll'), href: "/payroll", icon: Banknote, roles: ["admin", "accountant"] },
@@ -106,7 +106,8 @@ export function Sidebar() {
       {sidebarOpen && userRole && userRole !== "admin" && (
         <div className="mx-3 mt-3 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl">
           <p className="text-xs font-semibold text-blue-400">
-            {userRole === "accountant" ? "🧮 Buxgalter" : "👁 Ko'ruvchi"}
+            {userRole === "accountant" ? "🧮 Buxgalter" :
+             userRole === "observer" ? "👁 Nazoratchi" : "👁 Ko'ruvchi"}
           </p>
         </div>
       )}

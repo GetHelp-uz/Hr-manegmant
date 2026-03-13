@@ -15,7 +15,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      language: 'en',
+      language: 'uz',
       setLanguage: (lang) => set({ language: lang }),
       sidebarOpen: true,
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
