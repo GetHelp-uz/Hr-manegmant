@@ -170,6 +170,7 @@ const DDL_STATEMENTS: [string, string][] = [
   [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS branch_id integer REFERENCES branches(id) ON DELETE SET NULL`, "employees.branch_id"],
   [`ALTER TABLE payroll ADD COLUMN IF NOT EXISTS penalty_amount numeric(15,2) DEFAULT 0`, "payroll.penalty_amount"],
   [`ALTER TABLE payroll ADD COLUMN IF NOT EXISTS sales_bonus numeric(15,2) DEFAULT 0`, "payroll.sales_bonus"],
+  [`ALTER TABLE branches ADD COLUMN IF NOT EXISTS shift_id integer REFERENCES company_shifts(id) ON DELETE SET NULL`, "branches.shift_id"],
 ];
 
 export async function setupAdminTables() {

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, employeesTable, departmentsTable, companiesTable } from "@workspace/db";
 import { eq, and, ilike, sql, desc } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { sendTelegramPhoto, sendTelegramMessage, getBotUsername } from "../lib/telegram-bot";
 import QRCode from "qrcode";
 
@@ -388,6 +388,23 @@ router.post("/:id/enroll-face", requireAuth, async (req, res) => {
   }
 });
 
+router.put("/:id/shift", requireAdmin, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    const id = parseInt(req.params.id);
+    const { shiftId } = req.body;
+    const [updated] = await db.update(employeesTable)
+      .set({ shiftId: shiftId ? parseInt(shiftId) : null })
+      .where(and(eq(employeesTable.id, id), eq(employeesTable.companyId, companyId)))
+      .returning();
+    if (!updated) return res.status(404).json({ error: "not_found" });
+    return res.json(formatEmployee(updated));
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
 router.delete("/:id/enroll-face", requireAuth, async (req, res) => {
   try {
     const companyId = (req.session as any).companyId;
@@ -430,6 +447,8 @@ function formatEmployee(e: any) {
     laborBookIssuedDate: e.laborBookIssuedDate || null,
     contractEndDate: e.contractEndDate || null,
     probationMonths: e.probationMonths || 0,
+    shiftId: e.shiftId || null,
+    branchId: e.branchId || null,
     createdAt: e.createdAt,
   };
 }

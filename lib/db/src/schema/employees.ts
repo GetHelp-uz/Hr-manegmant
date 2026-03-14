@@ -34,6 +34,8 @@ export const employeesTable = pgTable("employees", {
   laborBookIssuedDate: date("labor_book_issued_date"),
   contractEndDate: date("contract_end_date"),
   probationMonths: integer("probation_months").default(0),
+  shiftId: integer("shift_id"),
+  branchId: integer("branch_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

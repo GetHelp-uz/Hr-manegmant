@@ -11,6 +11,7 @@ export const branchesTable = pgTable("branches", {
   phone: varchar("phone", { length: 50 }),
   timezone: varchar("timezone", { length: 100 }).default("Asia/Tashkent"),
   managerId: integer("manager_id"),
+  shiftId: integer("shift_id"),
   status: varchar("status", { length: 20 }).notNull().default("active"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -7,7 +7,7 @@ import { useListEmployees, useCreateEmployee, useDeleteEmployee } from "@workspa
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw, MessageCircle, ScanFace } from "lucide-react";
+import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw, MessageCircle, ScanFace, Clock } from "lucide-react";
 import FaceEnrollModal from "@/components/FaceEnrollModal";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -40,6 +40,15 @@ export default function Employees() {
     queryKey: ["/api/departments"],
     queryFn: async () => { const r: any = await apiClient.get("/api/departments"); return (Array.isArray(r) ? r : r?.data ?? []) as any[]; },
   });
+
+  const { data: shifts = [] } = useQuery({
+    queryKey: ["/api/shifts"],
+    queryFn: () => apiClient.get("/api/shifts") as Promise<any[]>,
+  });
+
+  const [shiftModalEmp, setShiftModalEmp] = useState<any | null>(null);
+  const [shiftModalValue, setShiftModalValue] = useState("");
+  const [shiftSaving, setShiftSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: "", phone: "", position: "",
@@ -84,6 +93,28 @@ export default function Employees() {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/employees"] })
     }
   });
+
+  const openShiftModal = (emp: any) => {
+    setShiftModalEmp(emp);
+    setShiftModalValue(emp.shiftId ? String(emp.shiftId) : "__none__");
+  };
+
+  const handleShiftAssign = async () => {
+    if (!shiftModalEmp) return;
+    setShiftSaving(true);
+    try {
+      await apiClient.put(`/api/employees/${shiftModalEmp.id}/shift`, {
+        shiftId: shiftModalValue !== "__none__" ? parseInt(shiftModalValue) : null,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      toast({ title: "Smena belgilandi" });
+      setShiftModalEmp(null);
+    } catch {
+      toast({ title: "Xatolik", variant: "destructive" });
+    } finally {
+      setShiftSaving(false);
+    }
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,6 +241,7 @@ export default function Employees() {
                   <th className="px-6 py-4">{t('position')}</th>
                   <th className="px-6 py-4">{t('phone')}</th>
                   <th className="px-6 py-4">{t('salary_type')}</th>
+                  <th className="px-6 py-4">Smena</th>
                   <th className="px-6 py-4 text-center">QR</th>
                   <th className="px-6 py-4 text-center">Yuz</th>
                   <th className="px-6 py-4 text-right">{t('actions')}</th>
@@ -217,9 +249,9 @@ export default function Employees() {
               </thead>
               <tbody className="divide-y divide-border/50">
                 {isLoading ? (
-                  <tr><td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">{t('loading')}</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">{t('loading')}</td></tr>
                 ) : (employees?.data?.length ?? 0) === 0 ? (
-                  <tr><td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">{t('no_data')}</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">{t('no_data')}</td></tr>
                 ) : (
                   employees?.data.map((emp) => (
                     <tr key={emp.id} className="hover:bg-muted/30 transition-colors group">
@@ -243,6 +275,35 @@ export default function Employees() {
                         <span className="px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium uppercase">
                           {emp.salaryType}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const sh = (shifts as any[]).find(s => s.id === (emp as any).shiftId);
+                          return sh ? (
+                            <button
+                              onClick={() => openShiftModal(emp)}
+                              className="flex items-center gap-1.5 group/shift"
+                              title="Smenani o'zgartirish"
+                            >
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: sh.color || "#3b82f6" }}
+                              />
+                              <span className="text-xs font-medium text-foreground group-hover/shift:text-primary transition-colors">
+                                {sh.name}
+                              </span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openShiftModal(emp)}
+                              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+                              title="Smena belgilash"
+                            >
+                              <Clock className="w-3 h-3" />
+                              Belgilash
+                            </button>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-center">
                         {emp.qrCode ? (
@@ -631,6 +692,56 @@ export default function Employees() {
           )}
         </DialogContent>
       </Dialog>
+      {/* ===== SMENA BELGILASH DIALOG ===== */}
+      <Dialog open={!!shiftModalEmp} onOpenChange={v => { if (!v) setShiftModalEmp(null); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              Smena belgilash
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              <b className="text-foreground">{shiftModalEmp?.fullName}</b> uchun ish smenasini tanlang:
+            </p>
+            <Select value={shiftModalValue} onValueChange={setShiftModalValue}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Smena tanlang..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Smena bekor qilish</SelectItem>
+                {(shifts as any[]).map((s: any) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-2 h-2 rounded-full inline-block flex-shrink-0"
+                        style={{ backgroundColor: s.color || "#3b82f6" }}
+                      />
+                      <span>{s.name}</span>
+                      <span className="text-muted-foreground text-xs ml-1 font-mono">
+                        {s.start_time?.slice(0,5)}–{s.end_time?.slice(0,5)}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(shifts as any[]).length === 0 && (
+              <p className="text-[12px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                ⚠ Hali smena yaratilmagan. "Ish Smenalari" bo'limiga o'ting.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShiftModalEmp(null)} className="rounded-xl">Bekor</Button>
+            <Button onClick={handleShiftAssign} disabled={shiftSaving} className="rounded-xl">
+              {shiftSaving ? "Saqlanmoqda..." : "Saqlash"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {faceEnrollEmp && (
         <FaceEnrollModal
           employee={faceEnrollEmp}
