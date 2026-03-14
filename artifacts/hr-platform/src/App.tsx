@@ -43,6 +43,9 @@ const OnboardingPage = lazy(() => import("@/pages/onboarding/index"));
 const IntegrationsPage = lazy(() => import("@/pages/integrations/index"));
 const CvMonitorPage = lazy(() => import("@/pages/cv-monitor/index"));
 const GovIntegrationPage = lazy(() => import("@/pages/gov-integration/index"));
+const BranchesPage = lazy(() => import("@/pages/branches/index"));
+const SchedulesPage = lazy(() => import("@/pages/schedules/index"));
+const SalesPage = lazy(() => import("@/pages/sales/index"));
 
 const queryClient = new QueryClient();
 
@@ -89,6 +92,9 @@ function Router() {
         <Route path="/integrations" component={IntegrationsPage} />
         <Route path="/cv-monitor" component={CvMonitorPage} />
         <Route path="/gov-integration" component={GovIntegrationPage} />
+        <Route path="/branches" component={BranchesPage} />
+        <Route path="/schedules" component={SchedulesPage} />
+        <Route path="/sales" component={SalesPage} />
         <Route path="/platform-admin/login" component={PlatformAdminLogin} />
         <Route path="/platform-admin/dashboard" component={PlatformAdminDashboard} />
         <Route path="/platform-admin/companies/:id" component={PlatformAdminCompany} />

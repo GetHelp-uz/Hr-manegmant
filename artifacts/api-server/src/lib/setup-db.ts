@@ -128,6 +128,48 @@ const DDL_STATEMENTS: [string, string][] = [
     created_at timestamptz DEFAULT now()
   )`, "company_audit_log"],
   [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS shift_id integer`, "employees.shift_id"],
+  [`CREATE TABLE IF NOT EXISTS branches (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name varchar(255) NOT NULL,
+    address varchar(500),
+    phone varchar(50),
+    timezone varchar(100) DEFAULT 'Asia/Tashkent',
+    manager_id integer,
+    status varchar(20) NOT NULL DEFAULT 'active',
+    notes text,
+    created_at timestamptz DEFAULT now()
+  )`, "branches"],
+  [`CREATE TABLE IF NOT EXISTS schedules (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    employee_id integer NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    branch_id integer REFERENCES branches(id) ON DELETE SET NULL,
+    day_of_week integer NOT NULL,
+    shift_start time NOT NULL,
+    shift_end time NOT NULL,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamptz DEFAULT now()
+  )`, "schedules"],
+  [`CREATE TABLE IF NOT EXISTS sales (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    branch_id integer REFERENCES branches(id) ON DELETE SET NULL,
+    employee_id integer REFERENCES employees(id) ON DELETE SET NULL,
+    amount numeric(15,2) NOT NULL,
+    items_count integer DEFAULT 0,
+    source varchar(50) DEFAULT 'manual',
+    external_ref varchar(100),
+    notes text,
+    sale_time timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz DEFAULT now()
+  )`, "sales"],
+  [`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS branch_id integer REFERENCES branches(id) ON DELETE SET NULL`, "attendance.branch_id"],
+  [`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS device_type varchar(50) DEFAULT 'qr'`, "attendance.device_type"],
+  [`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS location varchar(255)`, "attendance.location"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS branch_id integer REFERENCES branches(id) ON DELETE SET NULL`, "employees.branch_id"],
+  [`ALTER TABLE payroll ADD COLUMN IF NOT EXISTS penalty_amount numeric(15,2) DEFAULT 0`, "payroll.penalty_amount"],
+  [`ALTER TABLE payroll ADD COLUMN IF NOT EXISTS sales_bonus numeric(15,2) DEFAULT 0`, "payroll.sales_bonus"],
 ];
 
 export async function setupAdminTables() {

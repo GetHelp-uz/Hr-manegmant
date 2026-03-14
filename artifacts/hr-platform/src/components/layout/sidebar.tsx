@@ -24,6 +24,8 @@ import {
   ShieldCheck,
   Plug,
   ScanEye,
+  ShoppingCart,
+  MapPin,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-store";
 import { useTranslation, type Language } from "@/lib/i18n";
@@ -72,6 +74,8 @@ export function Sidebar() {
       { name: t('dashboard'), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
       { name: t('employees'), href: "/employees", icon: Users, roles: ["admin", "hr"] },
       { name: t('departments'), href: "/departments", icon: Building2, roles: ["admin"] },
+      { name: "Filiallar", href: "/branches", icon: MapPin, roles: ["admin"] },
+      { name: "Ish Jadvali", href: "/schedules", icon: CalendarDays, roles: ["admin", "hr"] },
     ]},
     { groupKey: 'group_attendance', items: [
       { name: t('attendance'), href: "/attendance", icon: CalendarCheck, roles: ["admin", "accountant", "viewer", "observer", "hr"] },
@@ -86,6 +90,7 @@ export function Sidebar() {
       { name: t('advance_requests'), href: "/advances", icon: HandCoins, badge: pendingAdvances || undefined, roles: ["admin"] },
     ]},
     { groupKey: 'group_finance', items: [
+      { name: "Sotuvlar (POS)", href: "/sales", icon: ShoppingCart, roles: ["admin", "accountant"] },
       { name: t('payroll'), href: "/payroll", icon: Banknote, roles: ["admin", "accountant"] },
       { name: t('reports'), href: "/reports", icon: FileBarChart, roles: ["admin", "accountant", "viewer"] },
       { name: t('export'), href: "/export", icon: Download, roles: ["admin", "accountant"] },

@@ -24,6 +24,9 @@ import auditLogRouter from "./audit-log";
 import integrationsRouter from "./integrations";
 import cvMonitorRouter from "./cv-monitor";
 import govExportRouter from "./gov-export";
+import branchesRouter from "./branches";
+import schedulesRouter from "./schedules";
+import salesRouter from "./sales";
 
 const router: IRouter = Router();
 
@@ -52,5 +55,8 @@ router.use("/audit-log", auditLogRouter);
 router.use("/integrations", integrationsRouter);
 router.use("/cv-monitor", cvMonitorRouter);
 router.use("/gov-export", govExportRouter);
+router.use("/branches", branchesRouter);
+router.use("/schedules", schedulesRouter);
+router.use("/sales", salesRouter);
 
 export default router;

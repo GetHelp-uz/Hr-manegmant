@@ -10,7 +10,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Info,
   Users, Clock, Calendar, Banknote, Brain, Lightbulb, ShieldAlert,
   Activity, UserPlus, AlertCircle, ArrowUpRight, ArrowDownRight,
-  BadgeCheck,
+  BadgeCheck, ShoppingCart, BarChart3, Target,
 } from "lucide-react";
 
 const MONTHS = ["", "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
@@ -93,6 +93,12 @@ export default function AnalyticsPage() {
     staleTime: 60000,
   });
 
+  const { data: salesKpi } = useQuery({
+    queryKey: ["/api/sales/kpi", month, year],
+    queryFn: () => apiClient.get(`/api/sales/kpi?month=${month}&year=${year}`) as Promise<any>,
+    staleTime: 60000,
+  });
+
   const ov = data?.overview;
   const trend = data?.trend || [];
   const empStats = data?.employeeStats || [];
@@ -172,6 +178,67 @@ export default function AnalyticsPage() {
               <KpiCard label="To'langan" value={ov.paidPayrolls} sub="xodim" icon={BadgeCheck} accent="bg-green-50 text-green-600" />
               <KpiCard label="Ta'til so'rovlari" value={ov.pendingLeave} sub="kutilmoqda" icon={Info} accent={ov.pendingLeave > 0 ? "bg-blue-50 text-blue-500" : "bg-slate-50 text-slate-400"} />
               <KpiCard label="Avans so'rovlari" value={ov.pendingAdvance} sub="kutilmoqda" icon={TrendingDown} accent={ov.pendingAdvance > 0 ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-400"} />
+            </div>
+
+            {/* ── BIZNES KPI ─────────────────────────────────────────────── */}
+            <div className="bg-white rounded-xl border border-border overflow-hidden">
+              <div className="px-6 py-5 border-b border-border">
+                <SectionHeader icon={BarChart3} title="Biznes Ko'rsatkichlari" sub="Sotuvlar, mehnat xarajatlari va daromad tahlili" iconCls="bg-emerald-50 text-emerald-600" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-y sm:divide-y-0">
+                {[
+                  {
+                    label: "Xodim boshiga daromad",
+                    value: salesKpi?.revenuePerEmployee > 0
+                      ? `${(salesKpi.revenuePerEmployee / 1_000_000).toFixed(2)}M`
+                      : "—",
+                    sub: "so'm / xodim",
+                    icon: ShoppingCart,
+                    accent: "text-emerald-600",
+                    tip: "Sales per Employee",
+                  },
+                  {
+                    label: "Mehnat xarajatlari ulushi",
+                    value: salesKpi?.totalRevenue > 0 && ov?.totalPayroll > 0
+                      ? `${((ov.totalPayroll / salesKpi.totalRevenue) * 100).toFixed(1)}%`
+                      : "—",
+                    sub: "Maosh / Daromad",
+                    icon: Target,
+                    accent: "text-blue-600",
+                    tip: "Labor Cost %",
+                  },
+                  {
+                    label: "Soatlik daromad",
+                    value: salesKpi?.totalRevenue > 0 && ov?.totalHours > 0
+                      ? `${Math.round(salesKpi.totalRevenue / ov.totalHours).toLocaleString("uz-UZ")}`
+                      : "—",
+                    sub: "so'm / soat",
+                    icon: TrendingUp,
+                    accent: "text-purple-600",
+                    tip: "Revenue per Hour",
+                  },
+                  {
+                    label: "Davomat darajasi",
+                    value: ov?.totalEmployees > 0 && ov?.totalDays > 0
+                      ? `${Math.min(100, Math.round((ov.totalDays / (ov.totalEmployees * 22)) * 100))}%`
+                      : "—",
+                    sub: "oylik o'rtacha",
+                    icon: Users,
+                    accent: "text-orange-600",
+                    tip: "Attendance Rate",
+                  },
+                ].map((kpi, i) => (
+                  <div key={i} className="p-5 flex flex-col gap-1">
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${kpi.accent} mb-1`}>
+                      <kpi.icon className="w-3.5 h-3.5" />
+                      {kpi.tip}
+                    </div>
+                    <p className="text-2xl font-display font-bold">{kpi.value}</p>
+                    <p className="text-sm font-medium text-foreground/70">{kpi.label}</p>
+                    <p className="text-xs text-muted-foreground">{kpi.sub}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* ── HR RISK DETECTOR ───────────────────────────────────────── */}

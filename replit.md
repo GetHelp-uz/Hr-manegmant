@@ -40,20 +40,32 @@ artifacts-monorepo/
 ## HR Platform Features
 
 - **Multi-tenant**: Each company has its own isolated data workspace
-- **QR Attendance**: Camera-based QR scanning for check-in/check-out
+- **QR Attendance + Face Recognition**: Camera-based QR scanning + selfie/DeepFace for check-in/check-out
 - **Real-time Dashboard**: Live attendance stats, today's check-ins
-- **Employee Management**: Add/edit/delete with QR code generation
-- **Payroll Calculation**: Hourly and monthly salary types
+- **Employee Management**: Add/edit/delete with QR code generation + employment types (informal/official/contract)
+- **Branches**: Multi-branch/office management with employee assignment
+- **Schedules**: Per-employee weekly shift scheduling with branch and time
+- **Payroll Calculation**: Hourly/monthly/daily/piecerate salary types + bonus, penalty, sales bonus
+- **POS Sales Integration**: Import sales records from POS systems, track per employee/branch
 - **Attendance Reports**: Monthly summaries per employee
 - **Device Management**: Register and manage QR scanner devices
+- **AI Analytics**: HR Risk Detector, AI hiring recommendations, Business KPIs (Sales/Employee, Labor Cost %, Revenue/Hour, Attendance Rate)
+- **Telegram Bot**: Employee attendance via Telegram, /myid command, Telegram QR setup
+- **Government Integration**: SOLIQ/INPS XML export, JSHSHIR management
+- **CV Monitor**: Real-time camera monitoring with employee presence dashboard
 - **Multi-language**: Uzbek (UZ), Russian (RU), English (EN)
-- **Authentication**: Session-based auth with HTTP-only cookies
+- **Authentication**: Session-based auth with HTTP-only cookies, role-based access (admin/accountant/hr/viewer/observer)
+- **Super Admin**: Platform admin at /platform-admin/login with company management, tariff plans
 
 ## Database Schema
 
-Tables: `companies`, `admins`, `employees`, `devices`, `attendance`, `payroll`
+Tables: `companies`, `admins`, `employees`, `devices`, `attendance`, `payroll`, `departments`, `branches`, `schedules`, `sales`, `leave_requests`, `advance_requests`, `audit_log`, `employee_activity`, `company_shifts`
 
-## API Routes (all under /api)
+## Key Routes (all under /api)
+
+- `GET/POST/PUT/DELETE /branches` — Branch management
+- `GET/POST/DELETE /schedules` — Employee shift scheduling; POST /schedules/bulk replaces all schedules for an employee
+- `GET /sales` — List sales records; `POST /sales/import` — Import single sale; `POST /sales/bulk-import` — Import batch; `GET /sales/kpi` — Monthly KPIs (revenuePerEmployee, byBranch, byEmployee)
 
 - `POST /auth/login` — Company admin login
 - `POST /auth/register` — Register new company
