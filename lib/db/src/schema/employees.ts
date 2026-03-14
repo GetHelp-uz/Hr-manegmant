@@ -36,6 +36,7 @@ export const employeesTable = pgTable("employees", {
   probationMonths: integer("probation_months").default(0),
   shiftId: integer("shift_id"),
   branchId: integer("branch_id"),
+  nfcCardId: varchar("nfc_card_id", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

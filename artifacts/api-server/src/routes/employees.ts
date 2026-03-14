@@ -449,6 +449,7 @@ function formatEmployee(e: any) {
     probationMonths: e.probationMonths || 0,
     shiftId: e.shiftId || null,
     branchId: e.branchId || null,
+    nfcCardId: e.nfcCardId || null,
     createdAt: e.createdAt,
   };
 }

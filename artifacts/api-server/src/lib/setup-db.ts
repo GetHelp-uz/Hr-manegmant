@@ -171,6 +171,30 @@ const DDL_STATEMENTS: [string, string][] = [
   [`ALTER TABLE payroll ADD COLUMN IF NOT EXISTS penalty_amount numeric(15,2) DEFAULT 0`, "payroll.penalty_amount"],
   [`ALTER TABLE payroll ADD COLUMN IF NOT EXISTS sales_bonus numeric(15,2) DEFAULT 0`, "payroll.sales_bonus"],
   [`ALTER TABLE branches ADD COLUMN IF NOT EXISTS shift_id integer REFERENCES company_shifts(id) ON DELETE SET NULL`, "branches.shift_id"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS nfc_card_id varchar(100)`, "employees.nfc_card_id"],
+  [`CREATE UNIQUE INDEX IF NOT EXISTS nfc_card_unique ON employees (company_id, nfc_card_id) WHERE nfc_card_id IS NOT NULL`, "employees.nfc_card_unique_idx"],
+  [`CREATE TABLE IF NOT EXISTS skud_devices (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name varchar(255) NOT NULL,
+    location varchar(255),
+    ip_address varchar(50),
+    device_type varchar(30) NOT NULL DEFAULT 'entry',
+    api_token varchar(128) NOT NULL,
+    status varchar(20) NOT NULL DEFAULT 'active',
+    created_at timestamptz DEFAULT now()
+  )`, "skud_devices"],
+  [`CREATE TABLE IF NOT EXISTS skud_events (
+    id serial PRIMARY KEY,
+    company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    device_id integer REFERENCES skud_devices(id) ON DELETE SET NULL,
+    employee_id integer REFERENCES employees(id) ON DELETE SET NULL,
+    card_id varchar(100),
+    direction varchar(10) DEFAULT 'in',
+    access_granted boolean NOT NULL DEFAULT false,
+    note varchar(255),
+    created_at timestamptz DEFAULT now()
+  )`, "skud_events"],
 ];
 
 export async function setupAdminTables() {

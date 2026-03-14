@@ -27,6 +27,7 @@ import govExportRouter from "./gov-export";
 import branchesRouter from "./branches";
 import schedulesRouter from "./schedules";
 import salesRouter from "./sales";
+import skudRouter from "./skud";
 
 const router: IRouter = Router();
 
@@ -58,5 +59,6 @@ router.use("/gov-export", govExportRouter);
 router.use("/branches", branchesRouter);
 router.use("/schedules", schedulesRouter);
 router.use("/sales", salesRouter);
+router.use("/skud", skudRouter);
 
 export default router;
