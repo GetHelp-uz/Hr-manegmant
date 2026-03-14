@@ -39,15 +39,22 @@ const MODES = [
   },
 ] as const;
 
+const BUILD_MODE = process.env.EXPO_PUBLIC_DEFAULT_MODE || "unified";
+
 export default function ModeSelect() {
   const { mode, loading } = useApp();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (loading) return;
-    if (mode === "kiosk") router.replace("/kiosk");
-    else if (mode === "employee") router.replace("/employee-home");
-    else if (mode === "admin") router.replace("/admin-home");
+    // If already logged in, go to proper screen
+    if (mode === "kiosk") { router.replace("/kiosk"); return; }
+    if (mode === "employee") { router.replace("/employee-home"); return; }
+    if (mode === "admin") { router.replace("/admin-home"); return; }
+    // If build is locked to a specific mode, auto-open login for that mode
+    if (BUILD_MODE !== "unified" && mode === "select") {
+      router.replace({ pathname: "/login", params: { modeKey: BUILD_MODE } });
+    }
   }, [mode, loading]);
 
   if (loading) {
