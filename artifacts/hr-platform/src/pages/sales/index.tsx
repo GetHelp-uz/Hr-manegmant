@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ShoppingCart, TrendingUp, Building2, User, BarChart3 } from "lucide-react";
+import { Plus, ShoppingCart, TrendingUp, Building2, User, BarChart3, Brain } from "lucide-react";
+import { Link } from "wouter";
 
 const fmt = (n: number) => new Intl.NumberFormat("uz-UZ").format(Math.round(n));
 
@@ -81,6 +82,11 @@ export default function Sales() {
               <SelectTrigger className="w-24 rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>{[2024,2025,2026].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
             </Select>
+            <Link href="/sales/forecast">
+              <Button variant="outline" className="gap-2 rounded-xl">
+                <Brain className="w-4 h-4 text-violet-500" /> AI Bashorat
+              </Button>
+            </Link>
             <Button onClick={() => setIsOpen(true)} className="gap-2 rounded-xl">
               <Plus className="w-4 h-4" /> Sotuv qo'shish
             </Button>

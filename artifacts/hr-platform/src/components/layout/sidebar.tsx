@@ -91,6 +91,7 @@ export function Sidebar() {
     ]},
     { groupKey: 'group_finance', items: [
       { name: "Sotuvlar (POS)", href: "/sales", icon: ShoppingCart, roles: ["admin", "accountant"] },
+      { name: "AI Savdo Bashorat", href: "/sales/forecast", icon: Brain, roles: ["admin", "accountant"] },
       { name: t('payroll'), href: "/payroll", icon: Banknote, roles: ["admin", "accountant"] },
       { name: t('reports'), href: "/reports", icon: FileBarChart, roles: ["admin", "accountant", "viewer"] },
       { name: t('export'), href: "/export", icon: Download, roles: ["admin", "accountant"] },
