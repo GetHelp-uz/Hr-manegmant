@@ -62,7 +62,7 @@
 
 :root {
   /* Pure white background */
-  --background: 0 0% 97%;
+  --background: 0 0% 100%;
   --foreground: 220 20% 14%;
 
   --border: 220 13% 91%;
@@ -71,32 +71,33 @@
 
   --card: 0 0% 100%;
   --card-foreground: 220 20% 14%;
-  --card-border: 220 13% 90%;
+  --card-border: 220 13% 91%;
 
-  /* Dark sidebar — charcoal/slate */
-  --sidebar: 222 25% 13%;
-  --sidebar-foreground: 210 20% 92%;
-  --sidebar-border: 222 20% 18%;
-  --sidebar-primary: 220 90% 58%;
+  /* White sidebar */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 220 15% 20%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-primary: 220 90% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 222 20% 18%;
-  --sidebar-accent-foreground: 210 20% 92%;
-  --sidebar-ring: 220 90% 58%;
+  --sidebar-accent: 220 90% 96%;
+  --sidebar-accent-foreground: 220 90% 40%;
+  --sidebar-ring: 220 90% 48%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 220 20% 14%;
-  --popover-border: 220 13% 90%;
+  --popover-border: 220 13% 91%;
 
+  /* Blue primary */
   --primary: 220 90% 48%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 13% 94%;
+  --secondary: 220 13% 95%;
   --secondary-foreground: 220 20% 14%;
 
-  --muted: 220 13% 94%;
+  --muted: 220 13% 96%;
   --muted-foreground: 220 9% 46%;
 
-  --accent: 220 13% 94%;
+  --accent: 220 13% 95%;
   --accent-foreground: 220 20% 14%;
 
   --destructive: 0 84% 57%;
@@ -138,6 +139,21 @@
   transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 .card-lift:hover {
-  box-shadow: 0 4px 24px rgba(30, 40, 80, 0.08);
+  box-shadow: 0 4px 24px rgba(30, 40, 80, 0.06);
   transform: translateY(-1px);
+}
+
+/* Arch diagram connections */
+.arch-connector {
+  position: relative;
+}
+.arch-connector::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -20px;
+  width: 2px;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent, #2563eb44);
+  transform: translateX(-50%);
 }
