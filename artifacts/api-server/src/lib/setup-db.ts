@@ -172,6 +172,12 @@ const DDL_STATEMENTS: [string, string][] = [
   [`ALTER TABLE payroll ADD COLUMN IF NOT EXISTS sales_bonus numeric(15,2) DEFAULT 0`, "payroll.sales_bonus"],
   [`ALTER TABLE branches ADD COLUMN IF NOT EXISTS shift_id integer REFERENCES company_shifts(id) ON DELETE SET NULL`, "branches.shift_id"],
   [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS nfc_card_id varchar(100)`, "employees.nfc_card_id"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS timepad_code varchar(8)`, "employees.timepad_code"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS attendance_method varchar(20) DEFAULT 'qr'`, "employees.attendance_method"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS app_login varchar(100)`, "employees.app_login"],
+  [`ALTER TABLE employees ADD COLUMN IF NOT EXISTS app_password varchar(255)`, "employees.app_password"],
+  [`CREATE UNIQUE INDEX IF NOT EXISTS emp_app_login_unique ON employees (company_id, app_login) WHERE app_login IS NOT NULL`, "employees.app_login_unique_idx"],
+  [`CREATE UNIQUE INDEX IF NOT EXISTS emp_timepad_unique ON employees (company_id, timepad_code) WHERE timepad_code IS NOT NULL`, "employees.timepad_code_unique_idx"],
   [`CREATE UNIQUE INDEX IF NOT EXISTS nfc_card_unique ON employees (company_id, nfc_card_id) WHERE nfc_card_id IS NOT NULL`, "employees.nfc_card_unique_idx"],
   [`CREATE TABLE IF NOT EXISTS skud_devices (
     id serial PRIMARY KEY,

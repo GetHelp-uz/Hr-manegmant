@@ -28,6 +28,7 @@ import branchesRouter from "./branches";
 import schedulesRouter from "./schedules";
 import salesRouter from "./sales";
 import skudRouter from "./skud";
+import mobileAppRouter from "./mobile-app";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use("/branches", branchesRouter);
 router.use("/schedules", schedulesRouter);
 router.use("/sales", salesRouter);
 router.use("/skud", skudRouter);
+router.use("/mobile", mobileAppRouter);
 
 export default router;

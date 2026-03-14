@@ -7,7 +7,7 @@ import { useListEmployees, useCreateEmployee, useDeleteEmployee } from "@workspa
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw, MessageCircle, ScanFace, Clock } from "lucide-react";
+import { Plus, Search, Trash2, QrCode, Building2, Printer, Download, RefreshCw, MessageCircle, ScanFace, Clock, Key, Smartphone } from "lucide-react";
 import FaceEnrollModal from "@/components/FaceEnrollModal";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -35,6 +35,37 @@ export default function Employees() {
   const [tgQrData, setTgQrData] = useState<{ qrCode: string; deepLink: string } | null>(null);
   const [tgQrLoading, setTgQrLoading] = useState(false);
   const [faceEnrollEmp, setFaceEnrollEmp] = useState<any | null>(null);
+  const [isMobileKeyOpen, setIsMobileKeyOpen] = useState(false);
+  const [mobileKeyEmp, setMobileKeyEmp] = useState<any | null>(null);
+  const [mobileKeyData, setMobileKeyData] = useState({ appLogin: "", appPassword: "", attendanceMethod: "qr", timepadCode: "", nfcCardId: "" });
+  const [mobileKeySaving, setMobileKeySaving] = useState(false);
+
+  const openMobileKey = (emp: any) => {
+    setMobileKeyEmp(emp);
+    setMobileKeyData({
+      appLogin: emp.appLogin || "",
+      appPassword: "",
+      attendanceMethod: emp.attendanceMethod || "qr",
+      timepadCode: emp.timepadCode || "",
+      nfcCardId: emp.nfcCardId || "",
+    });
+    setIsMobileKeyOpen(true);
+  };
+
+  const saveMobileKey = async () => {
+    if (!mobileKeyEmp) return;
+    setMobileKeySaving(true);
+    try {
+      await apiClient.post(`/api/mobile/setup-employee/${mobileKeyEmp.id}`, mobileKeyData);
+      toast({ title: "Saqlandi", description: "Xodim ilovasi hisob ma'lumotlari yangilandi" });
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setIsMobileKeyOpen(false);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Xato", description: e?.message || "Saqlashda xato" });
+    } finally {
+      setMobileKeySaving(false);
+    }
+  };
 
   const { data: departments = [] } = useQuery({
     queryKey: ["/api/departments"],
@@ -334,6 +365,15 @@ export default function Employees() {
                           <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => openTgQr(emp)}>
                             <MessageCircle className="w-3.5 h-3.5" />
                             Telegram
+                          </Button>
+                          <Button
+                            variant="outline" size="sm"
+                            className={`h-8 px-3 rounded-lg gap-1.5 text-xs ${(emp as any).appLogin ? "text-violet-600 border-violet-200 hover:bg-violet-50" : "text-slate-500"}`}
+                            onClick={() => openMobileKey(emp)}
+                            title="Ilova hisobini boshqarish"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                            Kalit
                           </Button>
                           {!isHrOnly && (
                             <Button
@@ -692,6 +732,108 @@ export default function Employees() {
           )}
         </DialogContent>
       </Dialog>
+      {/* ===== MOBILE KEY / ILOVA HISOB DIALOG ===== */}
+      <Dialog open={isMobileKeyOpen} onOpenChange={setIsMobileKeyOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-violet-600" />
+              HR Control Ilova Hisob
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <div className="flex items-center gap-3 bg-violet-50 rounded-xl p-3 text-sm">
+              <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
+                <Key className="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <div className="font-semibold text-violet-900 text-sm">{mobileKeyEmp?.fullName}</div>
+                <div className="text-xs text-violet-600">{mobileKeyEmp?.position}</div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase text-muted-foreground">Kirish usuli</Label>
+              <Select value={mobileKeyData.attendanceMethod} onValueChange={v => setMobileKeyData(p => ({ ...p, attendanceMethod: v }))}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Usul tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="qr">📷 QR Kod</SelectItem>
+                  <SelectItem value="timepad">🔢 TimePad Kod</SelectItem>
+                  <SelectItem value="nfc">📶 NFC Karta</SelectItem>
+                  <SelectItem value="face">👤 Yuz aniqlash</SelectItem>
+                  <SelectItem value="skud">🛡️ СКУД NFC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(mobileKeyData.attendanceMethod === "nfc" || mobileKeyData.attendanceMethod === "skud") && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase text-muted-foreground">NFC Karta ID</Label>
+                <Input
+                  value={mobileKeyData.nfcCardId}
+                  onChange={e => setMobileKeyData(p => ({ ...p, nfcCardId: e.target.value }))}
+                  className="rounded-xl font-mono"
+                  placeholder="04:AB:12:CD:..."
+                />
+              </div>
+            )}
+
+            {mobileKeyData.attendanceMethod === "timepad" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase text-muted-foreground">TimePad Kod (4-8 raqam)</Label>
+                <Input
+                  value={mobileKeyData.timepadCode}
+                  onChange={e => setMobileKeyData(p => ({ ...p, timepadCode: e.target.value.replace(/\D/g, "") }))}
+                  className="rounded-xl font-mono text-lg tracking-widest text-center"
+                  placeholder="1234"
+                  maxLength={8}
+                />
+              </div>
+            )}
+
+            <div className="border-t pt-3 space-y-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase">Ilova Login</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Login</Label>
+                  <Input
+                    value={mobileKeyData.appLogin}
+                    onChange={e => setMobileKeyData(p => ({ ...p, appLogin: e.target.value.trim() }))}
+                    className="rounded-xl"
+                    placeholder="employee_login"
+                    autoCapitalize="none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Yangi parol</Label>
+                  <Input
+                    type="password"
+                    value={mobileKeyData.appPassword}
+                    onChange={e => setMobileKeyData(p => ({ ...p, appPassword: e.target.value }))}
+                    className="rounded-xl"
+                    placeholder="bo'sh = o'zgartirma"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Parol bo'sh qoldirilsa mavjud parol o'zgarmaydi.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setIsMobileKeyOpen(false)}>Bekor</Button>
+            <Button
+              className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white gap-2"
+              onClick={saveMobileKey}
+              disabled={mobileKeySaving}
+            >
+              {mobileKeySaving ? "Saqlanmoqda..." : <><Key className="w-4 h-4" /> Saqlash</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ===== SMENA BELGILASH DIALOG ===== */}
       <Dialog open={!!shiftModalEmp} onOpenChange={v => { if (!v) setShiftModalEmp(null); }}>
         <DialogContent className="sm:max-w-sm rounded-2xl">

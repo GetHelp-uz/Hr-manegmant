@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/timepad/"
+title = "TimePad — Davomat Kioski"
+version = "1.0.0"
+id = "artifacts/timepad"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+localPort = 23478
+name = "expo"
+paths = ["/timepad/"]
+
+[services.development]
+run = "pnpm --filter @workspace/timepad run dev"
+
+[services.env]
+PORT = "23478"
+BASE_PATH = "/timepad/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/timepad", "run", "build"]
+run = ["pnpm", "--filter", "@workspace/timepad", "run", "serve"]
