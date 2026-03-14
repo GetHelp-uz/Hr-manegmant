@@ -6,7 +6,7 @@
   "build": {
     "base": {
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "",
+        "EXPO_PUBLIC_DOMAIN": "25a9a49d-6f33-4370-b548-474244fad1f8-00-3cjw9wuytf80e.kirk.replit.dev",
         "EXPO_PUBLIC_DEFAULT_MODE": "unified"
       }
     },

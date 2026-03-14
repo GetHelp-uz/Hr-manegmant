@@ -9,37 +9,43 @@ import { useApp } from "@/context/AppContext";
 import Colors from "@/constants/colors";
 import * as Haptics from "expo-haptics";
 
-const MODES = [
-  {
-    key: "kiosk",
+const BUILD_MODE = process.env.EXPO_PUBLIC_DEFAULT_MODE || "unified";
+
+const MODE_CONFIGS = {
+  kiosk: {
     icon: "monitor" as const,
     title: "TimePad Kioski",
-    subtitle: "Planshet kioski — QR, NFC, TimePad kod",
+    subtitle: "QR, NFC va PIN orqali davomat",
     color: "#2563EB",
     bg: "#EEF2FF",
     badge: "Planshet",
+    loginRoute: "/login" as const,
+    homeRoute: "/kiosk" as const,
+    description: "Korporativ davomat tizimi",
   },
-  {
-    key: "employee",
+  employee: {
     icon: "key" as const,
-    title: "Xodim ilovasi",
-    subtitle: "Shaxsiy QR, NFC, TimePad kodingizni ko'ring",
+    title: "HR Mobile Key",
+    subtitle: "Shaxsiy QR, NFC, TimePad kodingiz",
     color: "#7C3AED",
     bg: "#F5F3FF",
-    badge: "Mobile Key",
+    badge: "Xodim",
+    loginRoute: "/login" as const,
+    homeRoute: "/employee-home" as const,
+    description: "Xodim kirish kaliti",
   },
-  {
-    key: "admin",
+  admin: {
     icon: "users" as const,
-    title: "HR Boshqaruv",
+    title: "HR Admin",
     subtitle: "Xodimlar, davomat, maosh nazorati",
     color: "#059669",
     bg: "#ECFDF5",
     badge: "HR Control",
+    loginRoute: "/login" as const,
+    homeRoute: "/admin-home" as const,
+    description: "HR boshqaruv paneli",
   },
-] as const;
-
-const BUILD_MODE = process.env.EXPO_PUBLIC_DEFAULT_MODE || "unified";
+};
 
 export default function ModeSelect() {
   const { mode, loading } = useApp();
@@ -47,23 +53,27 @@ export default function ModeSelect() {
 
   useEffect(() => {
     if (loading) return;
-    // If already logged in, go to proper screen
     if (mode === "kiosk") { router.replace("/kiosk"); return; }
     if (mode === "employee") { router.replace("/employee-home"); return; }
     if (mode === "admin") { router.replace("/admin-home"); return; }
-    // If build is locked to a specific mode, auto-open login for that mode
-    if (BUILD_MODE !== "unified" && mode === "select") {
+    if (BUILD_MODE !== "unified") {
       router.replace({ pathname: "/login", params: { modeKey: BUILD_MODE } });
     }
   }, [mode, loading]);
 
-  if (loading) {
+  if (loading || (BUILD_MODE !== "unified" && mode === "select")) {
+    const cfg = MODE_CONFIGS[BUILD_MODE as keyof typeof MODE_CONFIGS];
     return (
-      <View style={styles.loadingCenter}>
-        <View style={styles.logoBox}>
-          <Feather name="clock" size={32} color={Colors.primary} />
+      <View style={[styles.lockedSplash, { paddingTop: insets.top }]}>
+        <View style={[styles.lockedIconBox, { backgroundColor: cfg?.bg || "#EEF2FF" }]}>
+          <Feather name={cfg?.icon || "clock"} size={48} color={cfg?.color || Colors.primary} />
         </View>
-        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 24 }} />
+        <Text style={[styles.lockedTitle, { color: cfg?.color || Colors.primary }]}>
+          {cfg?.title || "HR Control"}
+        </Text>
+        <Text style={styles.lockedSub}>{cfg?.subtitle || ""}</Text>
+        <ActivityIndicator size="small" color={cfg?.color || Colors.primary} style={{ marginTop: 32 }} />
+        <Text style={styles.lockedFooter}>HR Workforce — O'zbekiston</Text>
       </View>
     );
   }
@@ -81,7 +91,6 @@ export default function ModeSelect() {
         paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0),
       }
     ]}>
-      {/* Logo */}
       <View style={styles.header}>
         <View style={styles.logoBox}>
           <Feather name="clock" size={32} color={Colors.primary} />
@@ -90,18 +99,17 @@ export default function ModeSelect() {
         <Text style={styles.appSub}>O'rta Osiyo uchun HR Boshqaruv Tizimi</Text>
       </View>
 
-      {/* Mode cards */}
       <View style={styles.modeList}>
         <Text style={styles.selectLabel}>Rejimni tanlang</Text>
-        {MODES.map((m) => (
+        {(Object.entries(MODE_CONFIGS) as [string, typeof MODE_CONFIGS.kiosk][]).map(([key, m]) => (
           <Pressable
-            key={m.key}
+            key={key}
             style={({ pressed }) => [
               styles.modeCard,
               { borderColor: m.color + "30" },
               pressed && { transform: [{ scale: 0.98 }], opacity: 0.9 },
             ]}
-            onPress={() => handleSelect(m.key)}
+            onPress={() => handleSelect(key)}
           >
             <View style={[styles.modeIconBox, { backgroundColor: m.bg }]}>
               <Feather name={m.icon} size={28} color={m.color} />
@@ -130,6 +138,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
     paddingHorizontal: 24,
+  },
+  lockedSplash: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.background,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  lockedIconBox: {
+    width: 96,
+    height: 96,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  lockedTitle: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  lockedSub: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  lockedFooter: {
+    position: "absolute",
+    bottom: 40,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
   },
   loadingCenter: {
     flex: 1,

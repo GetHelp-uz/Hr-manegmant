@@ -399,4 +399,130 @@ router.get("/today-attendance", async (req, res) => {
   }
 });
 
+// ─── MOBILE APPS MANAGEMENT — employee list with credentials ──────────
+router.get("/management/employees", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    if (!companyId) return res.status(401).json({ error: "not_authenticated" });
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query(
+        `SELECT id, full_name, position, department, photo, status,
+                app_login, app_password, attendance_method,
+                timepad_code, nfc_card_id, qr_code
+         FROM employees
+         WHERE company_id=$1
+         ORDER BY full_name`,
+        [companyId]
+      );
+      return res.json(rows.map(e => ({
+        id: e.id,
+        fullName: e.full_name,
+        position: e.position,
+        department: e.department,
+        photo: e.photo,
+        status: e.status,
+        appLogin: e.app_login,
+        hasPassword: !!e.app_password,
+        attendanceMethod: e.attendance_method,
+        timepadCode: e.timepad_code,
+        nfcCardId: e.nfc_card_id,
+        qrCode: e.qr_code,
+        isConfigured: !!(e.app_login && e.app_password),
+      })));
+    } finally { client.release(); }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+// ─── BULK AUTO-SETUP MOBILE CREDENTIALS ──────────────────────────────
+router.post("/management/bulk-setup", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    if (!companyId) return res.status(401).json({ error: "not_authenticated" });
+    const { employeeIds, defaultPassword, attendanceMethod } = req.body as {
+      employeeIds?: number[];
+      defaultPassword?: string;
+      attendanceMethod?: string;
+    };
+    const client = await pool.connect();
+    try {
+      let query = `SELECT id, full_name, app_login FROM employees WHERE company_id=$1 AND status='active'`;
+      const params: any[] = [companyId];
+      if (employeeIds && employeeIds.length > 0) {
+        query += ` AND id = ANY($2)`;
+        params.push(employeeIds);
+      } else {
+        query += ` AND (app_login IS NULL OR app_password IS NULL)`;
+      }
+      const { rows: emps } = await client.query(query, params);
+      const updated: any[] = [];
+      for (const emp of emps) {
+        const login = emp.app_login || `emp_${emp.id}_${Math.random().toString(36).slice(2, 6)}`;
+        const password = defaultPassword || Math.random().toString(36).slice(2, 10);
+        const tcode = `${100000 + Math.floor(Math.random() * 900000)}`;
+        await client.query(
+          `UPDATE employees SET
+             app_login=COALESCE(app_login,$1), app_password=$2,
+             timepad_code=COALESCE(timepad_code,$3),
+             attendance_method=COALESCE(NULLIF($4,''), attendance_method,'qr')
+           WHERE id=$5 AND company_id=$6`,
+          [login, password, tcode, attendanceMethod || "", emp.id, companyId]
+        );
+        updated.push({ id: emp.id, fullName: emp.full_name, login, password, timepadCode: tcode });
+      }
+      return res.json({ updated: updated.length, employees: updated });
+    } finally { client.release(); }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+// ─── CLEAR MOBILE CREDENTIALS ─────────────────────────────────────────
+router.post("/management/clear-credentials/:empId", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    if (!companyId) return res.status(401).json({ error: "not_authenticated" });
+    const empId = parseInt(req.params.empId);
+    const client = await pool.connect();
+    try {
+      await client.query(
+        `UPDATE employees SET app_login=NULL, app_password=NULL, timepad_code=NULL, nfc_card_id=NULL
+         WHERE id=$1 AND company_id=$2`,
+        [empId, companyId]
+      );
+      return res.json({ success: true });
+    } finally { client.release(); }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
+// ─── RESET PASSWORD ──────────────────────────────────────────────────
+router.post("/management/reset-password/:empId", requireAuth, async (req, res) => {
+  try {
+    const companyId = (req.session as any).companyId;
+    if (!companyId) return res.status(401).json({ error: "not_authenticated" });
+    const empId = parseInt(req.params.empId);
+    const newPassword = Math.random().toString(36).slice(2, 10);
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query(
+        `UPDATE employees SET app_password=$1 WHERE id=$2 AND company_id=$3 RETURNING app_login`,
+        [newPassword, empId, companyId]
+      );
+      if (!rows[0]) return res.status(404).json({ error: "not_found" });
+      return res.json({ success: true, login: rows[0].app_login, password: newPassword });
+    } finally { client.release(); }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server_error" });
+  }
+});
+
 export default router;
+
