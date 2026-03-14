@@ -103,7 +103,7 @@ module.exports = {
     extra: {
       defaultMode: MODE,
       eas: {
-        projectId: process.env.EAS_PROJECT_ID || "",
+        projectId: "0c39cda0-4e7d-408d-974f-ef6daaa837b9",
       },
     },
   },
