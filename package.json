@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "start": "cd artifacts/api-server && NODE_ENV=production node ./dist/index.cjs",
+    "start": "node scripts/db-push.cjs && cd artifacts/api-server && NODE_ENV=production node ./dist/index.cjs",
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/hr-platform run build && pnpm --filter @workspace/api-server run build && cd lib/db && npx drizzle-kit push --force --dialect=postgresql --schema=./src/schema/*.ts",
+    "build": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/hr-platform run build && pnpm --filter @workspace/api-server run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
