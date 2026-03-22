@@ -42,7 +42,7 @@ app.use(session({
 app.use("/api", router);
 
 if (process.env.NODE_ENV === "production") {
-  const publicPath = path.resolve(process.cwd(), "artifacts/hr-platform/dist");
+  const publicPath = path.resolve(process.cwd(), "artifacts/hr-platform/dist/public");
   app.use(express.static(publicPath));
   app.get("*", (req: express.Request, res: express.Response) => {
     res.sendFile(path.resolve(publicPath, "index.html"));
