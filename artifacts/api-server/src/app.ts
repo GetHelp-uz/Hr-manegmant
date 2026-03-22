@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import path from "path";
 import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -39,5 +40,13 @@ app.use(session({
 }));
 
 app.use("/api", router);
+
+if (process.env.NODE_ENV === "production") {
+  const publicPath = path.resolve(process.cwd(), "artifacts/hr-platform/dist");
+  app.use(express.static(publicPath));
+  app.get("*", (req: express.Request, res: express.Response) => {
+    res.sendFile(path.resolve(publicPath, "index.html"));
+  });
+}
 
 export default app;
