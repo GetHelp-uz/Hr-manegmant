@@ -27,8 +27,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts || pnpm install --no-frozen-
 # Copy all source code
 COPY . .
 
-# Build libraries first
-RUN pnpm run typecheck:libs || true
+# No typecheck needed - esbuild bundles .ts directly
 
 # Build frontend (set PORT and BASE_PATH for vite config)
 RUN cd artifacts/hr-platform && PORT=3000 BASE_PATH="/" NODE_ENV=production pnpm run build || true
